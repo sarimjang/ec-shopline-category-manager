@@ -765,16 +765,65 @@
   }
 
   /**
+   * 等待樹有實際的分類節點
+   */
+  function waitForTreeNodes(timeout = 15000) {
+    return new Promise((resolve, reject) => {
+      console.log('[Shopline Category Manager] 等待樹節點載入...');
+
+      // 檢查是否已有分類節點
+      const checkNodes = () => {
+        const nodes = document.querySelectorAll('.angular-ui-tree-node');
+        if (nodes.length > 0) {
+          console.log('[Shopline Category Manager] ✓ 找到', nodes.length, '個樹節點');
+          return true;
+        }
+        return false;
+      };
+
+      if (checkNodes()) {
+        resolve();
+        return;
+      }
+
+      // 監聽 DOM 變化
+      const observer = new MutationObserver(() => {
+        if (checkNodes()) {
+          observer.disconnect();
+          resolve();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Timeout waiting for tree nodes'));
+      }, timeout);
+    });
+  }
+
+  /**
    * 初始化應用
    */
   async function init() {
     try {
       console.log('[Shopline Category Manager] 正在初始化...');
 
+      // 首先等待實際的樹節點出現（表示分類已加載）
+      try {
+        await waitForTreeNodes(15000);
+      } catch (error) {
+        console.error('[Shopline Category Manager] 樹節點超時:', error.message);
+      }
+
       // 等待樹容器載入
       let treeContainer;
       try {
-        treeContainer = await waitForElement('.angular-ui-tree', 15000);
+        treeContainer = await waitForElement('.angular-ui-tree', 5000);
         console.log('[Shopline Category Manager] 樹容器已載入');
       } catch (error) {
         console.error('[Shopline Category Manager] 樹容器未找到:', error.message);
@@ -809,11 +858,30 @@
         console.log('- 樹容器 class:', treeContainer.className);
         console.log('- 直接 scope:', getAngularScope(treeContainer));
         console.log('- 樹容器內容:', treeContainer.innerHTML.substring(0, 300));
+
+        // 最後的嘗試：檢查樹中的任何節點
+        const treeNode = document.querySelector('.angular-ui-tree-node');
+        if (treeNode) {
+          const nodeScope = getAngularScope(treeNode);
+          console.log('[Shopline Category Manager] 樹節點 scope:', nodeScope);
+          if (nodeScope && nodeScope.$parent && nodeScope.$parent.$parent && nodeScope.$parent.$parent.categories) {
+            console.log('[Shopline Category Manager] ✓ 在樹節點的祖先 scope 中找到 categories！');
+            const categoryManager = new CategoryManager(nodeScope.$parent.$parent);
+            categoryManager.initialize();
+            return;
+          }
+        }
+
         return;
       }
 
+      if (!scope.categories || scope.categories.length === 0) {
+        console.warn('[Shopline Category Manager] 警告：categories 陣列為空');
+        console.log('[Shopline Category Manager] 這可能是頁面剛載入完成，分類數據可能稍後出現');
+      }
+
       console.log('[Shopline Category Manager] ✓ 成功初始化');
-      console.log('[Shopline Category Manager] 找到', scope.categories.length, '個根分類');
+      console.log('[Shopline Category Manager] 找到', scope.categories?.length || 0, '個根分類');
 
       // 初始化分類管理工具
       const categoryManager = new CategoryManager(scope);
