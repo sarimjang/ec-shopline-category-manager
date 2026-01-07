@@ -723,6 +723,43 @@
   }
 
   /**
+   * 尋找包含 categories 陣列的 scope
+   */
+  function findCategoriesScope(element) {
+    // 嘗試直接從元素的 scope 取得
+    let scope = getAngularScope(element);
+    if (scope && scope.categories && Array.isArray(scope.categories)) {
+      return scope;
+    }
+
+    // 嘗試從 $parent scope 取得
+    if (scope && scope.$parent) {
+      if (scope.$parent.categories && Array.isArray(scope.$parent.categories)) {
+        return scope.$parent;
+      }
+    }
+
+    // 嘗試從 $parent.$parent scope 取得
+    if (scope && scope.$parent && scope.$parent.$parent) {
+      if (scope.$parent.$parent.categories && Array.isArray(scope.$parent.$parent.categories)) {
+        return scope.$parent.$parent;
+      }
+    }
+
+    // 最後的手段：搜尋樹中的所有 scope，尋找 categories 陣列
+    const nodes = element.querySelectorAll('[ng-scope]');
+    for (const node of nodes) {
+      const nodeScope = getAngularScope(node);
+      if (nodeScope && nodeScope.categories && Array.isArray(nodeScope.categories)) {
+        console.log('[Shopline Category Manager] 在節點 scope 中找到 categories');
+        return nodeScope;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 初始化應用
    */
   async function init() {
@@ -733,16 +770,13 @@
       const treeContainer = await waitForElement('.angular-ui-tree', 10000);
       console.log('[Shopline Category Manager] 樹容器已載入');
 
-      // 取得 AngularJS scope
-      const scope = getAngularScope(treeContainer);
+      // 尋找包含 categories 的 scope
+      const scope = findCategoriesScope(treeContainer);
       if (!scope) {
-        console.error('[Shopline Category Manager] 初始化失敗：無法取得 scope');
-        return;
-      }
-
-      // 驗證 categories 陣列存在
-      if (!scope.categories || !Array.isArray(scope.categories)) {
-        console.error('[Shopline Category Manager] 初始化失敗：categories 不是陣列或不存在');
+        console.error('[Shopline Category Manager] 初始化失敗：無法找到 categories 陣列');
+        console.log('[Shopline Category Manager] 診斷資訊：');
+        console.log('- 樹容器:', treeContainer);
+        console.log('- 直接 scope:', getAngularScope(treeContainer));
         return;
       }
 
