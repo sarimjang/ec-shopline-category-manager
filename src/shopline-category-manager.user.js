@@ -235,8 +235,31 @@
       // 嘗試從 AngularJS scope 中取得分類
       try {
         const scope = angular.element(element).scope();
+
+        // 方式 1: 直接從 scope.item 取得
         if (scope && scope.item) {
+          const itemName = this.getCategoryDisplayName(scope.item);
+          console.log('[Shopline Category Manager] ✓ 從 scope.item 取得分類:', itemName);
           return scope.item;
+        }
+
+        // 方式 2: 如果 scope 沒有 item，尋找最近的有 item 的祖先 scope
+        let currentScope = scope;
+        for (let i = 0; i < 5; i++) {
+          if (currentScope && currentScope.item) {
+            const itemName = this.getCategoryDisplayName(currentScope.item);
+            console.log('[Shopline Category Manager] ✓ 從祖先 scope 第', i + 1, '層取得分類:', itemName);
+            return currentScope.item;
+          }
+          currentScope = currentScope?.$parent;
+        }
+
+        console.warn('[Shopline Category Manager] ✗ 無法從任何 scope 層級取得分類');
+        if (scope) {
+          console.log('[Shopline Category Manager] Scope 結構:', {
+            hasItem: !!scope.item,
+            scopeKeys: Object.keys(scope).slice(0, 10),
+          });
         }
       } catch (error) {
         console.warn('[Shopline Category Manager] 無法從 scope 取得分類:', error);
