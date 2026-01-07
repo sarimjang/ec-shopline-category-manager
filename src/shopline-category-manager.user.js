@@ -104,6 +104,46 @@
       this.isMoving = false;
     }
 
+    /**
+     * 取得分類的顯示名稱
+     */
+    getCategoryDisplayName(category) {
+      // 優先使用 name 屬性
+      if (category.name) {
+        return category.name;
+      }
+
+      // 其次使用 name_translations
+      if (category.name_translations) {
+        // 優先繁體中文
+        if (category.name_translations['zh-hant']) {
+          return category.name_translations['zh-hant'];
+        }
+        // 其次英文
+        if (category.name_translations['en']) {
+          return category.name_translations['en'];
+        }
+        // 其他語言
+        const firstLang = Object.keys(category.name_translations)[0];
+        if (firstLang && category.name_translations[firstLang]) {
+          return category.name_translations[firstLang];
+        }
+      }
+
+      // 備選：使用 seo_title_translations
+      if (category.seo_title_translations) {
+        if (category.seo_title_translations['zh-hant']) {
+          return category.seo_title_translations['zh-hant'];
+        }
+        if (category.seo_title_translations['en']) {
+          return category.seo_title_translations['en'];
+        }
+      }
+
+      // 最後的備選：使用 ID
+      return category._id || category.id || 'Unknown';
+    }
+
     initialize() {
       console.log('[Shopline Category Manager] 初始化分類管理器');
       this.injectUI();
@@ -426,9 +466,10 @@
         const isLevel3 = targetLevel === 3;
 
         // 添加選項
-        console.log('[Shopline Category Manager] 添加選項:', cat.name, '層級:', targetLevel, '禁用:', isLevel3);
+        const displayName = this.getCategoryDisplayName(cat);
+        console.log('[Shopline Category Manager] 添加選項:', displayName, '層級:', targetLevel, '禁用:', isLevel3);
         options.push({
-          label: cat.name,
+          label: displayName,
           target: cat,
           indent: depth,
           disabled: isLevel3,
