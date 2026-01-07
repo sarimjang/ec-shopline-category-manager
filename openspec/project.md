@@ -8,8 +8,12 @@ Build a Greasemonkey/Tampermonkey userscript that enhances the Shopline e-commer
 - **Framework**: AngularJS 1.x (Shopline's framework)
 - **DOM Library**: Vanilla JavaScript (native DOM API)
 - **UI Framework**: Bootstrap 3 (Shopline uses Bootstrap classes)
-- **Tested on**: Shopline admin panel (shoplineapp.com, shopline.tw)
-- **Browser Compatibility**: Chrome, Firefox, Safari (userscript-capable browsers)
+- **Target URLs**:
+  - `https://admin.shoplineapp.com/admin/{storeId}/categories` (Primary - Taiwan)
+  - `https://{domain}.shopline.tw/admin/{storeId}/categories` (Taiwan variant)
+  - `https://{domain}.shopline.app/admin/{storeId}/categories` (International variant)
+- **Example**: `https://admin.shoplineapp.com/admin/goldenqueenpalace799/categories`
+- **Browser Compatibility**: Chrome, Firefox, Safari, Edge (userscript-capable browsers)
 
 ## Project Conventions
 
