@@ -314,25 +314,42 @@
         transition: background-color 0.2s ease;
         opacity: ${option.disabled ? '0.5' : '1'};
         background-color: ${option.disabled ? '#fafafa' : 'transparent'};
+        padding-left: ${12 + option.indent * 16}px;
+        position: relative;
       `;
 
-      // 建立標籤（支援樹狀縮排）
+      // 建立標籤容器
       const labelContainer = document.createElement('span');
       labelContainer.style.cssText = 'display: flex; align-items: center;';
 
-      // 添加縮排符號
+      // 添加縮排符號（改進視覺效果）
       if (option.indent > 0) {
-        for (let i = 0; i < option.indent; i++) {
-          const indent = document.createElement('span');
-          indent.textContent = '├─ ';
-          indent.style.cssText = 'color: #999; margin-right: 4px;';
-          labelContainer.appendChild(indent);
+        // 先添加層級指示符
+        const levelIndicator = document.createElement('span');
+
+        // 根據層級決定符號和樣式
+        if (option.indent === 1) {
+          levelIndicator.textContent = '├─ ';
+          levelIndicator.style.cssText = 'color: #bbb; font-weight: normal;';
+        } else if (option.indent === 2) {
+          levelIndicator.textContent = '  └─ ';
+          levelIndicator.style.cssText = 'color: #ddd; font-weight: normal;';
+        } else {
+          // 更深的層級
+          levelIndicator.textContent = '    └─ ';
+          levelIndicator.style.cssText = 'color: #eee; font-weight: normal;';
         }
+
+        labelContainer.appendChild(levelIndicator);
       }
 
       // 添加分類名稱
       const nameSpan = document.createElement('span');
       nameSpan.textContent = option.label;
+      nameSpan.style.cssText = `
+        font-size: 14px;
+        color: ${option.disabled ? '#999' : '#333'};
+      `;
       labelContainer.appendChild(nameSpan);
 
       item.appendChild(labelContainer);
