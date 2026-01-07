@@ -772,8 +772,33 @@
       console.log('[Shopline Category Manager] 正在初始化...');
 
       // 等待樹容器載入
-      const treeContainer = await waitForElement('.angular-ui-tree', 10000);
-      console.log('[Shopline Category Manager] 樹容器已載入');
+      let treeContainer;
+      try {
+        treeContainer = await waitForElement('.angular-ui-tree', 15000);
+        console.log('[Shopline Category Manager] 樹容器已載入');
+      } catch (error) {
+        console.error('[Shopline Category Manager] 樹容器未找到:', error.message);
+        console.log('[Shopline Category Manager] 嘗試備選選擇器...');
+
+        // 嘗試備選選擇器
+        treeContainer = document.querySelector('[ui-tree]');
+        if (!treeContainer) {
+          treeContainer = document.querySelector('.category-list .angular-ui-tree');
+        }
+        if (!treeContainer) {
+          treeContainer = document.querySelector('.angular-ui-tree-nodes');
+        }
+
+        if (!treeContainer) {
+          console.error('[Shopline Category Manager] 無法找到樹容器');
+          return;
+        }
+        console.log('[Shopline Category Manager] ✓ 使用備選選擇器找到樹容器');
+      }
+
+      // 診斷樹容器狀態
+      console.log('[Shopline Category Manager] 樹容器 HTML 長度:', treeContainer.innerHTML.length);
+      console.log('[Shopline Category Manager] 樹容器 children:', treeContainer.children.length);
 
       // 尋找包含 categories 的 scope
       const scope = findCategoriesScope(treeContainer);
@@ -781,11 +806,13 @@
         console.error('[Shopline Category Manager] 初始化失敗：無法找到 categories 陣列');
         console.log('[Shopline Category Manager] 診斷資訊：');
         console.log('- 樹容器:', treeContainer);
+        console.log('- 樹容器 class:', treeContainer.className);
         console.log('- 直接 scope:', getAngularScope(treeContainer));
+        console.log('- 樹容器內容:', treeContainer.innerHTML.substring(0, 300));
         return;
       }
 
-      console.log('[Shopline Category Manager] 成功初始化');
+      console.log('[Shopline Category Manager] ✓ 成功初始化');
       console.log('[Shopline Category Manager] 找到', scope.categories.length, '個根分類');
 
       // 初始化分類管理工具
@@ -793,6 +820,7 @@
       categoryManager.initialize();
     } catch (error) {
       console.error('[Shopline Category Manager] 初始化錯誤:', error);
+      console.error('[Shopline Category Manager] 錯誤堆棧:', error.stack);
     }
   }
 
