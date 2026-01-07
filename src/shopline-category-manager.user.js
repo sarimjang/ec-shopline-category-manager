@@ -409,11 +409,13 @@
       categories.forEach((cat) => {
         // 排除自己
         if (cat === currentCategory) {
+          console.log('[Shopline Category Manager] 排除自己:', cat.name);
           return;
         }
 
-        // 排除自己的子孫（防止迴圈）
-        if (isDescendant(currentCategory, cat)) {
+        // 排除自己的祖先（防止迴圈）- currentCategory 如果是 cat 的子孫，就不能把 cat 當成父容器
+        if (isDescendant(cat, currentCategory)) {
+          console.log('[Shopline Category Manager] 排除祖先:', cat.name);
           return;
         }
 
@@ -424,6 +426,7 @@
         const isLevel3 = targetLevel === 3;
 
         // 添加選項
+        console.log('[Shopline Category Manager] 添加選項:', cat.name, '層級:', targetLevel, '禁用:', isLevel3);
         options.push({
           label: cat.name,
           target: cat,
