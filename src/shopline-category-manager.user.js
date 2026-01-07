@@ -915,36 +915,35 @@
    * 尋找包含 categories 陣列的 scope
    */
   function findCategoriesScope(element) {
-    // 嘗試直接從元素的 scope 取得
+    // 方式 1: 直接從傳入的元素本身取得（如果它是樹容器）
     let scope = getAngularScope(element);
     if (scope && scope.categories && Array.isArray(scope.categories)) {
+      console.log('[Shopline Category Manager] ✓ 從傳入元素 scope 找到 categories');
       return scope;
     }
 
-    // 嘗試從 $parent scope 取得
-    if (scope && scope.$parent) {
-      if (scope.$parent.categories && Array.isArray(scope.$parent.categories)) {
-        return scope.$parent;
-      }
+    // 方式 2: 嘗試找到最近的樹容器
+    const treeContainer = element.closest?.('.angular-ui-tree') ||
+                         element.querySelector?.('.angular-ui-tree') ||
+                         element;
+
+    scope = getAngularScope(treeContainer);
+    if (scope && scope.categories && Array.isArray(scope.categories)) {
+      console.log('[Shopline Category Manager] ✓ 從樹容器 scope 找到 categories');
+      return scope;
     }
 
-    // 嘗試從 $parent.$parent scope 取得
-    if (scope && scope.$parent && scope.$parent.$parent) {
-      if (scope.$parent.$parent.categories && Array.isArray(scope.$parent.$parent.categories)) {
-        return scope.$parent.$parent;
-      }
-    }
-
-    // 最後的手段：搜尋樹中的所有 scope，尋找 categories 陣列
-    const nodes = element.querySelectorAll('[ng-scope]');
-    for (const node of nodes) {
-      const nodeScope = getAngularScope(node);
+    // 方式 3: 如果樹容器本身沒有 categories，在樹節點上查找
+    const treeNode = treeContainer.querySelector?.('.angular-ui-tree-node');
+    if (treeNode) {
+      const nodeScope = getAngularScope(treeNode);
       if (nodeScope && nodeScope.categories && Array.isArray(nodeScope.categories)) {
-        console.log('[Shopline Category Manager] 在節點 scope 中找到 categories');
+        console.log('[Shopline Category Manager] ✓ 從樹節點 scope 找到 categories');
         return nodeScope;
       }
     }
 
+    console.warn('[Shopline Category Manager] ✗ 無法找到 categories 陣列');
     return null;
   }
 
