@@ -674,8 +674,11 @@
    */
   function waitForElement(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
+      console.log(`[Shopline Category Manager] 等待元素: ${selector}`);
+
       const element = document.querySelector(selector);
       if (element) {
+        console.log(`[Shopline Category Manager] ✓ 立即找到元素: ${selector}`);
         resolve(element);
         return;
       }
@@ -683,6 +686,7 @@
       const observer = new MutationObserver(() => {
         const element = document.querySelector(selector);
         if (element) {
+          console.log(`[Shopline Category Manager] ✓ MutationObserver 找到元素: ${selector}`);
           observer.disconnect();
           resolve(element);
         }
@@ -695,6 +699,7 @@
 
       setTimeout(() => {
         observer.disconnect();
+        console.error(`[Shopline Category Manager] ✗ 超時 (${timeout}ms) 未找到元素: ${selector}`);
         reject(new Error(`Timeout waiting for element: ${selector}`));
       }, timeout);
     });
@@ -795,10 +800,17 @@
   // 啟動應用
   // ============================================================================
 
+  console.log('[Shopline Category Manager] 腳本已載入，document.readyState:', document.readyState);
+
   // 頁面載入完成後初始化
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    console.log('[Shopline Category Manager] 監聽 DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Shopline Category Manager] DOMContentLoaded 觸發');
+      init();
+    });
   } else {
+    console.log('[Shopline Category Manager] 頁面已載入，直接初始化...');
     init();
   }
 })();
