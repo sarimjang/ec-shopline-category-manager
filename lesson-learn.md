@@ -4,56 +4,40 @@
 
 ---
 
-## [Trap] AngularJS 動態樹中的 DOM 節點識別陷阱 #angularjs #dom #userscript
+## ~~[Trap] AngularJS 動態樹中的 DOM 節點識別陷阱~~ #angularjs #dom #userscript
+
+> ❌ **已被取代** - 此 lesson 的解決方案無效，已被「[Pattern] DOM 名稱優先策略」取代
+>
+> **原因**：這是第一次嘗試的錯誤假設。建議「優先從 DOM 查詢 scope」，但 scope 本身就是不可靠的（會錯位）。
+> **正確方案**：不信任 scope，用 DOM 文字內容（名稱）直接在數據中查找。
 
 - **Context**: 使用 Tampermonkey 脚本在 Shopline 分類管理（angular-ui-tree 框架）中為每個分類項目注入「移動到」按鈕
 
 - **Issue**: 當用戶點擊子項（如「分類A-1」）的按鈕時，系統卻識別為父項（「分類A」），導致整個父項及其所有子項被移動
 
-- **Root Cause**:
-  1. **注入時的映射過時**：注入按鈕時，通過 `getCategoryFromElement()` 獲取的分類信息被存儲在 `buttonCategoryMap` 中，但 DOM 動態變化後該映射可能失效
-  2. **Scope 繼承問題**：AngularJS 中子元素的 scope 可能繼承父級屬性，在某些情況下 `scope.item` 返回錯誤的引用
-  3. **優先級錯誤**：依賴緩存的映射而非實時 DOM 查詢
+- **Root Cause** (部分正確，但解決方案錯誤):
+  1. ~~**注入時的映射過時**~~：不是主因
+  2. **Scope 繼承問題**：✅ 正確診斷
+  3. ~~**優先級錯誤**~~：優先 scope 查詢仍然無法解決問題
 
-- **Solution**: 反轉依賴優先級 — **優先從 DOM 直接查詢，後備才使用緩存映射**
+- ~~**Solution**~~: ❌ 此方案無效
   ```javascript
-  // ✅ 改進後的邏輯
-  let categoryInfo = null;
-  const button = e.currentTarget;
-  const treeNode = button.closest('.angular-ui-tree-node');
-
-  // 第1步：直接從按鈕所在的樹節點查詢 scope
-  if (treeNode) {
-    const scope = angular.element(treeNode).scope();
-    if (scope && scope.item) {
-      const arrayInfo = this.detectCategoryArray(scope.item);
-      categoryInfo = {
-        category: scope.item,  // 直接獲取當前節點的分類
-        array: arrayInfo.array,
-        arrayName: arrayInfo.arrayName,
-      };
-    }
-  }
-
-  // 第2步：只有在 DOM 查詢失敗時，才使用注入時的映射
-  if (!categoryInfo) {
-    const boundCategoryInfo = this.buttonCategoryMap.get(button);
-    categoryInfo = boundCategoryInfo || this.getCategoryFromElement(button);
-  }
+  // ❌ 這個方案仍然依賴 scope，而 scope 本身可能錯位
+  const scope = angular.element(treeNode).scope();
+  // scope.item 可能返回錯誤的分類！
   ```
 
-- **Key Insight**:
-  - 每次點擊都重新查詢 scope 能確保獲取最新的 DOM 狀態
-  - 對於動態 DOM 環境（如樹結構、可拖拽組件），實時性 > 性能
-  - 緩存映射應只作為後備，不應作為主要信息來源
+- **Correct Solution**: 見「[Pattern] DOM 名稱優先策略」
+  ```javascript
+  // ✅ 正確：從 DOM 取名稱，用名稱查找分類
+  const domName = element.querySelector('.cat-name')?.textContent?.trim();
+  const categoryInfo = this.findCategoryByName(domName);
+  ```
 
-- **Why It Matters**:
-  - 這是 Tampermonkey 脚本在 SPA（Single Page App）中常見的陷阱
-  - 不修復會導致「神秘的」移動錯誤，用戶難以復現或理解
-
-- **Status**: ✅ 已驗證 (在實際測試日誌中確認)
+- **Status**: ❌ 已被取代
 
 - **FirstRecorded**: 2026-01-08
+- **Superseded**: 2026-01-08
 
 ---
 
@@ -178,17 +162,26 @@
 
 ## [Shortcut] Tampermonkey 中的 AngularJS Scope 查詢技巧 #angularjs #userscript #dom
 
-- **Technique**: 在 Tampermonkey 脚本中安全地查詢 AngularJS 的 scope 和相關數據
+> ⚠️ **重要警告**：`scope()` 雖然是官方 API，但在 **angular-ui-tree** 等動態樹框架中，
+> scope 可能與 DOM 節點**錯位**（返回錯誤的 scope）。
+> **建議**：始終驗證 scope 返回的數據是否與 DOM 內容一致，或直接使用「DOM 名稱優先策略」。
+
+- **Technique**: 在 Tampermonkey 脚本中查詢 AngularJS 的 scope（需謹慎使用）
 
 ```javascript
-// ✅ 推薦用法
+// ⚠️ 可用但需驗證
 const element = document.querySelector('.angular-ui-tree-node');
 const scope = angular.element(element).scope();
 
-// 檢查 scope 是否存在和包含所需數據
+// 🆕 必須驗證 scope 與 DOM 是否一致
 if (scope && scope.item) {
-  const category = scope.item;  // 獲取該節點對應的分類
-  // ...
+  const scopeName = getDisplayName(scope.item);
+  const domName = element.querySelector('.cat-name')?.textContent?.trim();
+
+  if (scopeName !== domName) {
+    console.warn('⚠️ Scope mismatch! Using DOM fallback');
+    // 使用 DOM 名稱查找，不信任 scope
+  }
 }
 
 // ❌ 避免直接訪問
@@ -198,16 +191,18 @@ if (scope && scope.item) {
 - **Key Points**:
   - 使用 `angular.element(el).scope()` 而非直接訪問 `el.$scope`
   - 始終檢查 scope 和相關屬性是否存在
+  - ⚠️ **新增**：在動態樹（如 angular-ui-tree）中，scope 可能錯位，必須驗證
+  - ⚠️ **新增**：如果 scope 數據與 DOM 內容不符，使用 DOM 作為真相來源
   - 避免依賴 Scope 的內部結構（如 `$$childHead`、`$parent`），改用公開數據（如 `scope.item`）
-  - 對於動態 DOM（插入/刪除），每次都重新查詢而非緩存 scope
 
 - **Why**:
-  - `scope()` 是官方推薦的 API，穩定性更好
-  - 直接訪問內部屬性會在 AngularJS 版本更新時失效
+  - `scope()` 是官方推薦的 API，但不保證在動態樹中正確綁定
+  - Angular-ui-tree 的節點複用機制可能導致 scope 錯位
 
-- **Status**: ✅ 已驗證
+- **Status**: ⚠️ 需謹慎使用
 
 - **FirstRecorded**: 2026-01-08
+- **Updated**: 2026-01-08 (加入 scope 錯位警告)
 
 ---
 
@@ -473,10 +468,14 @@ try {
 
 | 類型 | 數量 | 狀態 |
 |------|------|------|
-| Trap | 5 | ✅ 5 |
+| Trap | 5 | ✅ 4, ❌ 1 (已被取代) |
 | Pattern | 4 | ✅ 4 |
-| Shortcut | 2 | ✅ 2 |
-| **Total** | **11** | **✅ 11** |
+| Shortcut | 2 | ⚠️ 1 (需謹慎), ✅ 1 |
+| **Total** | **11** | **✅ 9, ⚠️ 1, ❌ 1** |
+
+> **2026-01-08 更新**：
+> - 第一條 Trap「DOM 節點識別陷阱」已被取代（解決方案錯誤）
+> - Shortcut「Scope 查詢技巧」加入 scope 錯位警告
 
 ## ✅ RESOLVED: Scope Misalignment Root Cause (2026-01-08)
 
