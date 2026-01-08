@@ -147,6 +147,55 @@
     }
 
     /**
+     * 🆕 [FIX 2026-01-08] 根據名稱查詢分類物件（繞過 Angular scope）
+     * 這是最可靠的查找方式，因為 DOM 名稱永遠正確
+     */
+    findCategoryByName(categoryName) {
+      if (!categoryName) {
+        console.warn('[Shopline Category Manager] findCategoryByName: categoryName is empty');
+        return null;
+      }
+
+      const findInArray = (arr, arrayName, parentPath = '') => {
+        if (!arr || !Array.isArray(arr)) return null;
+
+        for (const item of arr) {
+          const itemName = this.getCategoryDisplayName(item);
+          const currentPath = parentPath ? `${parentPath} > ${itemName}` : itemName;
+
+          if (itemName === categoryName) {
+            console.log('[Shopline Category Manager] [findCategoryByName] Found:', {
+              name: itemName,
+              path: currentPath,
+              arrayName: arrayName,
+              hasId: !!(item._id || item.id),
+            });
+            return { category: item, array: arr, arrayName: arrayName };
+          }
+
+          if (item.children && Array.isArray(item.children)) {
+            const found = findInArray(item.children, arrayName, currentPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      // 先搜尋 categories
+      let result = findInArray(this.categories, 'categories');
+      if (result) return result;
+
+      // 再搜尋 posCategories
+      if (this.posCategories && this.posCategories.length > 0) {
+        result = findInArray(this.posCategories, 'posCategories');
+        if (result) return result;
+      }
+
+      console.warn('[Shopline Category Manager] [findCategoryByName] Not found:', categoryName);
+      return null;
+    }
+
+    /**
      * 🆕 [CHANGE 2] 根據 ID 查詢分類物件
      * ✅ FIX #2: Check both _id and id properties
      */
@@ -267,9 +316,38 @@
           return;
         }
 
-        const categoryInfo = this.getCategoryFromElement(node);
+        // 🆕 [FIX 2026-01-08] DOM 名稱優先策略
+        // Step 1: 從 DOM 取得分類名稱（永遠正確）
+        const domCategoryName = nameEl?.textContent?.trim();
+
+        // Step 2: 嘗試 scope-based lookup
+        let categoryInfo = this.getCategoryFromElement(node);
+
+        // Step 3: 如果 scope 失敗，使用 DOM 名稱查找（繞過 Angular scope）
+        if (!categoryInfo && domCategoryName) {
+          console.log('[Shopline Category Manager] [FIX] Scope failed, using DOM name fallback:', domCategoryName);
+          categoryInfo = this.findCategoryByName(domCategoryName);
+        }
+
+        // Step 4: 額外驗證：如果 scope 返回的名稱與 DOM 名稱不符，使用 DOM 名稱重新查找
+        if (categoryInfo && domCategoryName) {
+          const scopeCategoryName = this.getCategoryDisplayName(categoryInfo.category);
+          if (scopeCategoryName !== domCategoryName) {
+            console.warn('[Shopline Category Manager] ⚠️ [FIX] Scope mismatch detected!', {
+              domName: domCategoryName,
+              scopeName: scopeCategoryName,
+              action: 'Using DOM name to find correct category',
+            });
+            const correctedInfo = this.findCategoryByName(domCategoryName);
+            if (correctedInfo) {
+              categoryInfo = correctedInfo;
+              console.log('[Shopline Category Manager] ✓ [FIX] Corrected to:', domCategoryName);
+            }
+          }
+        }
+
         if (!categoryInfo) {
-          console.warn(`[Shopline Category Manager] 無法從第 ${index} 個節點取得分類物件`);
+          console.warn(`[Shopline Category Manager] 無法從第 ${index} 個節點取得分類物件 (DOM名稱: ${domCategoryName || 'unknown'})`);
           return;
         }
 
@@ -465,7 +543,10 @@
         }
 
         console.log('[Shopline Category Manager] [DEBUG] Found tree node element:', nodeEl.tagName, nodeEl.className);
-        const nodeNameEl = nodeEl.querySelector('.ui-tree-row .cat-name');
+
+        // 🆕 [FIX 2026-01-08] 使用 let 而非 const，以便在 nodeEl 更新後重新捕獲
+        // 使用 :scope > 確保只選擇直接子元素的 row，避免選到嵌套節點
+        let nodeNameEl = nodeEl.querySelector(':scope > .ui-tree-row .cat-name, :scope > .angular-ui-tree-handle .cat-name');
         console.log('[Shopline Category Manager] [DEBUG] Node name from DOM:', nodeNameEl?.textContent?.trim() || '(none)');
 
         // ✅ 新增驗證：確保找到的節點不是更深層的嵌套節點的父節點
@@ -473,6 +554,9 @@
         if (element.classList?.contains('angular-ui-tree-node')) {
           console.log('[Shopline Category Manager] [DEBUG] Input element is already a tree node, using it directly');
           nodeEl = element;
+          // 🆕 [FIX 2026-01-08] 重新捕獲 nodeNameEl，確保使用正確節點的名稱
+          nodeNameEl = nodeEl.querySelector(':scope > .ui-tree-row .cat-name, :scope > .angular-ui-tree-handle .cat-name');
+          console.log('[Shopline Category Manager] [DEBUG] Re-captured node name from updated nodeEl:', nodeNameEl?.textContent?.trim() || '(none)');
         }
 
         // ✅ 從樹節點本身的 scope 獲取 item（確保獲取到的是該節點對應的分類）
