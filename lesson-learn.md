@@ -319,29 +319,196 @@ try {
 
 ---
 
+## [Trap] JavaScript 變數捕獲時機陷阱 #javascript #closure #timing
+
+- **Context**: 在函數中，一個變數依賴另一個變數的值，但被依賴的變數後續可能更新
+
+- **Issue**: 使用 `const` 過早捕獲值，導致後續邏輯使用過時的引用
+  ```javascript
+  // ❌ Bug: nodeNameEl 在 nodeEl 更新前被捕獲
+  let nodeEl = element.closest('.angular-ui-tree-node');
+  const nodeNameEl = nodeEl.querySelector('.cat-name');  // 捕獲舊值
+
+  if (element.classList?.contains('angular-ui-tree-node')) {
+    nodeEl = element;  // nodeEl 更新
+    // nodeNameEl 仍指向舊 nodeEl 的子元素！
+  }
+
+  const name = nodeNameEl?.textContent;  // 錯誤的值！
+  ```
+
+- **Solution**: 使用 `let` 並在依賴變數更新後重新捕獲
+  ```javascript
+  // ✅ 正確：let + 重新捕獲
+  let nodeEl = element.closest('.angular-ui-tree-node');
+  let nodeNameEl = nodeEl.querySelector('.cat-name');
+
+  if (element.classList?.contains('angular-ui-tree-node')) {
+    nodeEl = element;
+    nodeNameEl = nodeEl.querySelector('.cat-name');  // 重新捕獲！
+  }
+  ```
+
+- **Rule of Thumb**: 如果變數 B 依賴變數 A，且 A 可能被更新，則 B 也需要可更新（用 `let`）並在 A 更新後重新賦值
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-08
+
+---
+
+## [Trap] CSS :scope 選擇器在嵌套結構中的重要性 #css #selector #nested
+
+- **Context**: 使用 `querySelector` 在樹狀 DOM 結構中查找元素
+
+- **Issue**: 普通選擇器會匹配所有後代，包括嵌套節點的子元素
+  ```html
+  <li class="tree-node" id="parent">
+    <div class="row"><span class="name">Parent</span></div>
+    <ol>
+      <li class="tree-node" id="child">
+        <div class="row"><span class="name">Child</span></div>
+      </li>
+    </ol>
+  </li>
+  ```
+
+  ```javascript
+  // ❌ 可能匹配到嵌套節點的 .name
+  parentNode.querySelector('.row .name')  // 可能返回 "Child" 而非 "Parent"
+  ```
+
+- **Solution**: 使用 `:scope >` 限定為直接子元素
+  ```javascript
+  // ✅ 只匹配直接子元素的 .row
+  parentNode.querySelector(':scope > .row .name')  // 確保返回 "Parent"
+  ```
+
+- **Why `:scope`**:
+  - `:scope` 代表調用 `querySelector` 的元素本身
+  - `:scope >` 表示「該元素的直接子元素」
+  - 避免意外匹配嵌套結構中的同類元素
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-08
+
+---
+
+## [Pattern] DOM 名稱優先策略（繞過不可靠的框架狀態）#dom #angular #reliability
+
+- **Context**: 在 SPA 框架（如 AngularJS）中，框架內部狀態可能與 DOM 不同步
+
+- **Key Insight**: **DOM 是真相，框架狀態可能說謊**
+  - DOM 文字內容是從實際數據渲染的，永遠正確
+  - 框架的 scope/state 可能因繼承、複用、快取而錯位
+
+- **Pattern**: 使用 DOM 內容作為主要查找依據
+  ```javascript
+  // 1️⃣ 從 DOM 取得名稱（永遠正確）
+  const domName = element.querySelector('.name')?.textContent?.trim();
+
+  // 2️⃣ 嘗試框架查找
+  let item = getItemFromFramework(element);
+
+  // 3️⃣ 驗證框架結果
+  if (item && getDisplayName(item) !== domName) {
+    console.warn('Framework mismatch! Using DOM fallback');
+    item = findItemByName(domName);  // 用名稱在數據中查找
+  }
+
+  // 4️⃣ 純 DOM 回退
+  if (!item && domName) {
+    item = findItemByName(domName);
+  }
+  ```
+
+- **When to Use**:
+  - 框架使用 scope 繼承（AngularJS, Angular）
+  - 動態樹結構（展開/收縮/拖拽）
+  - DOM 節點複用場景
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-08
+
+---
+
+## [Shortcut] 多代理並行分析大型日誌文件 #debugging #ai #parallel
+
+- **Technique**: 當日誌文件過大無法一次讀取時，使用多個子代理並行分析
+
+- **Implementation**:
+  ```
+  日誌文件: 743KB (超過 256KB 限制)
+
+  策略: 啟動 4 個子代理，各自分析不同段落
+  - Agent 1: Lines 1-2000
+  - Agent 2: Lines 2001-4000
+  - Agent 3: Lines 4001-6000
+  - Agent 4: Lines 6001-end
+
+  每個代理獨立尋找:
+  - Smoking gun 證據
+  - 錯誤模式
+  - 異常行為
+
+  匯總結果 → 交叉驗證 → 定位根因
+  ```
+
+- **Benefits**:
+  - 並行處理，節省時間
+  - 每個代理可深入分析其段落
+  - 多視角交叉驗證，減少遺漏
+
+- **Result**: Agent 3 找到確切 bug 位置（變數捕獲時機問題）
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-08
+
+---
+
 ## 📊 知識統計
 
 | 類型 | 數量 | 狀態 |
 |------|------|------|
-| Trap | 3 | ✅ 3 |
-| Pattern | 3 | ✅ 3 |
-| Shortcut | 1 | ✅ 1 |
-| **Total** | **7** | **✅ 7** |
+| Trap | 5 | ✅ 5 |
+| Pattern | 4 | ✅ 4 |
+| Shortcut | 2 | ✅ 2 |
+| **Total** | **11** | **✅ 11** |
 
-## 🔴 Critical Discovery: Scope Misalignment Root Cause
+## ✅ RESOLVED: Scope Misalignment Root Cause (2026-01-08)
 
-經過深入分析 `0108-02.log`，發現真正的 bug 根源：
+經過深入分析 `0108-01.log`（使用 4 個子代理並行分析 743KB 日誌），發現並修復了 **3 個疊加問題**：
 
-**問題不在點擊邏輯，而在 AngularJS 框架本身的 Scope 錯位！**
+### 問題 1: 變數捕獲時機 Bug
+```javascript
+// ❌ Bug: const 在 nodeEl 更新前捕獲
+const nodeNameEl = nodeEl.querySelector('.cat-name');
+if (element.classList?.contains('angular-ui-tree-node')) {
+  nodeEl = element;  // nodeEl 更新，但 nodeNameEl 仍指向舊的！
+}
+```
 
-Evidence from logs (lines 1960-1972):
-- DOM 顯示: "測試分類A" 和 "測試分類A-1"
-- 但 `angular.element(node).scope()` 返回: "測試分類B"
+### 問題 2: 嵌套選擇器問題
+```javascript
+// ❌ 可能匹配嵌套後代
+nodeEl.querySelector('.ui-tree-row .cat-name')
 
-**解決方案需要：**
-1. ✅ 已添加驗證層來偵測 Scope 錯位
-2. ⏳ 需要實施降級策略（使用 DOM attributes 存儲分類 ID）
-3. ⏳ 可能需要重構按鈕附加邏輯，避免過度依賴 Angular scope
+// ✅ 只匹配直接子元素
+nodeEl.querySelector(':scope > .ui-tree-row .cat-name')
+```
+
+### 問題 3: 缺少回退機制
+Scope 失敗時按鈕被跳過，而非使用 DOM 名稱查找正確分類。
+
+**解決方案：DOM 名稱優先策略**
+1. ✅ 添加 `findCategoryByName()` 方法（繞過 scope）
+2. ✅ 按鈕附加時驗證 scope 名稱 vs DOM 名稱
+3. ✅ 不匹配時使用 DOM 名稱重新查找
+
+**Commit**: `e3e00a7` (+87 lines, -3 lines)
 
 ---
 
@@ -357,4 +524,4 @@ Evidence from logs (lines 1960-1972):
 
 ---
 
-**最後更新**: 2026-01-08
+**最後更新**: 2026-01-08 (v2 - 修復完成，新增 4 條經驗)
