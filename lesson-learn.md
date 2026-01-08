@@ -211,55 +211,74 @@ if (scope && scope.item) {
 
 ---
 
-## [Trap] 子項與父項映射的優先級錯誤 #userscript #dom-traversal
+## [Trap] AngularJS Scope 與 DOM 節點錯位問題 #angularjs #scope #dom-mismatch
 
-- **Context**: 在 HTML 樹中，子元素和父元素都有相同的 CSS 類名（如 `.angular-ui-tree-node`），使用 `closest()` 時可能返回錯誤層級
+- **Context**: Tampermonkey 腳本在使用 `angular.element(treeNode).scope()` 從樹節點獲取分類資訊時
 
-- **Issue**:
+- **Issue**: **CRITICAL - Scope Misalignment**
+
+  在日誌分析中發現：
   ```
-  <li class="angular-ui-tree-node">  ← 父項 A
-    <div>...</div>
-    <ul>
-      <li class="angular-ui-tree-node">  ← 子項 A-1
-        <button data-move-button>...    ← 點擊這個按鈕
-      </button>
-      </li>
-    </ul>
-  </li>
+  DOM 層面: <li class="angular-ui-tree-node">
+    -> querySelector('.cat-name') → "測試分類A-1"
+
+  但 angular.element(treeNode).scope().item 返回:
+    -> getCategoryDisplayName() → "測試分類B"  ❌ 錯誤的分類！
   ```
-  當點擊「移動」按鈕時，`button.closest('.angular-ui-tree-node')` **可能會返回父項而非子項**
+
+  **這導致按下子項的「移動到」按鈕時，系統認為要移動的是完全不同的分類 B，而不是子項 A-1**
 
 - **Root Cause**:
-  - `closest()` 向上查找，返回第一個匹配元素
-  - 如果 DOM 結構嵌套層級過深或有多個相同類名，容易返回錯誤層級
+  - AngularJS 的 scope 與 DOM 節點的綁定已損毀或錯位
+  - `angular.element(node).scope()` 返回了錯誤的 scope（可能是父節點或兄弟節點的 scope）
+  - 這可能由以下原因造成：
+    1. Angular 動態樹的 scope 快取機制（tree-reuse/recycling）
+    2. Scope 層級繼承導致子元素讀到父級的 scope
+    3. DOM 更新時 Angular 未正確同步 scope 綁定
 
-- **Solution**:
-  1. **驗證返回值**：獲取 closest 後，驗證其內容是否與預期相符
+- **Solution** - 多層驗證策略:
+  1. **驗證 Scope 對應性**（新增驗證層）
      ```javascript
-     const treeNode = button.closest('.angular-ui-tree-node');
-     const scope = angular.element(treeNode).scope();
-     const actualName = this.getCategoryDisplayName(scope?.item);
+     const nodeNameEl = nodeEl.querySelector('.ui-tree-row .cat-name');
+     const domCategoryName = nodeNameEl?.textContent?.trim() || '';
+     const scope = angular.element(nodeEl).scope();
+     const scopeCategoryName = this.getCategoryDisplayName(scope.item);
 
-     // 驗證：這個元素對應的分類是否是我們預期的？
-     if (actualName !== expectedName) {
-       console.warn('⚠️ 節點識別錯誤!');
+     // 驗證: DOM 名稱是否與 Scope 返回的名稱一致
+     if (domCategoryName && scopeCategoryName !== domCategoryName) {
+       console.error('[SCOPE MISALIGNMENT] Detected mismatch:', {
+         domName: domCategoryName,
+         scopeName: scopeCategoryName,
+         scopeId: scope.$id,
+       });
+       // 此時應該使用 DOM 信息而非 scope 信息
      }
      ```
 
-  2. **多重檢查**：不要只依賴一個查詢方式
+  2. **降級策略** - 當發現 Scope 錯位時
+     - ❌ 不要盲目信任 `angular.element().scope()`
+     - ✓ 改用 DOM 文本內容直接搜尋分類
+     - ✓ 或在按鈕注入時存儲分類資訊到 DOM data attribute
      ```javascript
-     // 方式1：closest() 查詢
-     let node = button.closest('.angular-ui-tree-node');
-
-     // 方式2：驗證節點的直接父類是否符合預期
-     if (node.querySelector('[data-move-button]') === button) {
-       // ✓ 這是直接包含按鈕的節點，不是祖先
-     }
+     // 在按鈕上存儲分類 ID，點擊時直接使用
+     button.dataset.categoryId = category.id;
+     // 點擊時從 data attribute 取而非 scope 取
      ```
 
-- **Status**: ⏳ 待決策（是否需要額外的驗證層）
+- **Why Angular-UI-Tree Is Problematic**:
+  - Angular-ui-tree 使用動態 scope 和 DOM 節點複用
+  - 樹節點在展開/收縮時可能重新渲染
+  - Scope 綁定不夠穩定，導致獲取錯誤的分類資訊
+
+- **Lesson for Future**:
+  - 在 SPA 框架（Angular/React/Vue）中操作 DOM 時，**不要過度依賴框架的 scope/context**
+  - 始終驗證框架返回的數據是否符合預期
+  - 重要信息應該同時存儲在 DOM attributes + JavaScript 對象中，提供多個查詢途徑
+
+- **Status**: ✅ 已驗證（在 0108-02.log 中確認）
 
 - **FirstRecorded**: 2026-01-08
+- **RootCauseFound**: 2026-01-08
 
 ---
 
@@ -304,10 +323,25 @@ try {
 
 | 類型 | 數量 | 狀態 |
 |------|------|------|
-| Trap | 2 | ✅ 1, ⏳ 1 |
+| Trap | 3 | ✅ 3 |
 | Pattern | 3 | ✅ 3 |
 | Shortcut | 1 | ✅ 1 |
-| **Total** | **6** | **✅ 5, ⏳ 1** |
+| **Total** | **7** | **✅ 7** |
+
+## 🔴 Critical Discovery: Scope Misalignment Root Cause
+
+經過深入分析 `0108-02.log`，發現真正的 bug 根源：
+
+**問題不在點擊邏輯，而在 AngularJS 框架本身的 Scope 錯位！**
+
+Evidence from logs (lines 1960-1972):
+- DOM 顯示: "測試分類A" 和 "測試分類A-1"
+- 但 `angular.element(node).scope()` 返回: "測試分類B"
+
+**解決方案需要：**
+1. ✅ 已添加驗證層來偵測 Scope 錯位
+2. ⏳ 需要實施降級策略（使用 DOM attributes 存儲分類 ID）
+3. ⏳ 可能需要重構按鈕附加邏輯，避免過度依賴 Angular scope
 
 ---
 
