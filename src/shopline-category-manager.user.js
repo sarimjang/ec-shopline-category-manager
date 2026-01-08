@@ -103,6 +103,7 @@
       this.categories = scope.categories || [];
       this.posCategories = scope.posCategories || [];
       this.isMoving = false;
+      this.buttonCategoryMap = new WeakMap();
     }
 
     /**
@@ -187,19 +188,39 @@
       console.log(`[Shopline Category Manager] 找到 ${categoryNodes.length} 個分類節點`);
 
       categoryNodes.forEach((node, index) => {
-        // 找到操作按鈕區
-        const buttonArea = node.querySelector('.col-xs-5.text-right');
+        // 找到操作按鈕區（只取本節點的 row，避免抓到子節點的按鈕區）
+        const rowEl = Array.from(node.children).find(
+          (child) => child.classList?.contains('ui-tree-row')
+        );
+        const buttonArea = rowEl
+          ? rowEl.querySelector('.col-xs-5.text-right')
+          : node.querySelector('.col-xs-5.text-right');
         if (!buttonArea) {
           return;
         }
+        if (buttonArea.closest('.angular-ui-tree-node') !== node) {
+          console.warn('[Shopline Category Manager] [DEBUG] Skip button area (belongs to another node)', {
+            nodeName: this.getCategoryDisplayName(this.getCategoryFromElement(node)?.category || {}),
+          });
+          return;
+        }
+        const nameEl = rowEl?.querySelector('.cat-name');
+        console.log('[Shopline Category Manager] [DEBUG] Node bind context:', {
+          index,
+          nodeTag: node.tagName,
+          nodeClass: node.className,
+          rowTag: rowEl?.tagName || '(none)',
+          rowClass: rowEl?.className || '(none)',
+          nameText: nameEl?.textContent?.trim() || '(none)',
+        });
 
         // 避免重複注入
         if (buttonArea.querySelector('[data-move-button]')) {
           return;
         }
 
-        const category = this.getCategoryFromElement(node);
-        if (!category) {
+        const categoryInfo = this.getCategoryFromElement(node);
+        if (!categoryInfo) {
           console.warn(`[Shopline Category Manager] 無法從第 ${index} 個節點取得分類物件`);
           return;
         }
@@ -212,22 +233,85 @@
         moveButton.style.marginRight = '8px';
         moveButton.type = 'button';
 
+        // 🔍 診斷：驗證按鈕所在的節點是否與預期的 categoryInfo 一致
+        const buttonNodeName = this.getCategoryDisplayName(categoryInfo.category);
+        const actualScopeItem = angular.element(node).scope()?.item;
+        const actualName = this.getCategoryDisplayName(actualScopeItem);
+        if (buttonNodeName !== actualName) {
+          console.warn('[Shopline Category Manager] ⚠️  按鈕綁定檢查失敗:', {
+            expectedName: buttonNodeName,
+            actualName: actualName,
+            nodeId: node.id,
+            index: index,
+          });
+        }
+
         // 檢查分類是否應該禁用按鈕（特殊分類）
-        if (category.key) {
+        if (categoryInfo.category?.key) {
           moveButton.disabled = true;
           moveButton.title = '特殊分類不支援移動';
         } else {
           moveButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const categoryInfo = this.getCategoryFromElement(node);
+
+            // 🔥 改進邏輯：優先從按鈕的直接父 DOM 重新查詢，確保獲取到的是當前節點的分類
+            // 這樣可以避免注入時的映射錯誤導致的問題
+            let categoryInfo = null;
+            const button = e.currentTarget;
+            const treeNode = button.closest('.angular-ui-tree-node');
+
+            if (treeNode) {
+              // 直接從按鈕所在的樹節點查詢 scope
+              const scope = angular.element(treeNode).scope();
+              if (scope && scope.item) {
+                const arrayInfo = this.detectCategoryArray(scope.item);
+                categoryInfo = {
+                  category: scope.item,
+                  array: arrayInfo.array,
+                  arrayName: arrayInfo.arrayName,
+                };
+                console.log('[Shopline Category Manager] [DEBUG] Click 直接從 DOM 查詢:', {
+                  displayName: this.getCategoryDisplayName(scope.item),
+                  arrayName: categoryInfo.arrayName,
+                  treeNodeId: treeNode.id,
+                });
+              }
+            }
+
+            // 後備方案：如果 DOM 查詢失敗，才使用注入時的映射
+            if (!categoryInfo) {
+              const boundCategoryInfo = this.buttonCategoryMap.get(button);
+              categoryInfo = boundCategoryInfo || this.getCategoryFromElement(button);
+              if (categoryInfo) {
+                console.log('[Shopline Category Manager] [DEBUG] Click 使用備用映射:', {
+                  displayName: this.getCategoryDisplayName(categoryInfo.category),
+                  arrayName: categoryInfo.arrayName,
+                });
+              }
+            }
+
             if (categoryInfo) {
-              this.showMoveDropdown(categoryInfo.category, moveButton, categoryInfo.array, categoryInfo.arrayName);
+              console.log('[Shopline Category Manager] [DEBUG] Click 最終確認:', {
+                displayName: this.getCategoryDisplayName(categoryInfo.category),
+                arrayName: categoryInfo.arrayName,
+                childrenCount: categoryInfo.category?.children?.length || 0,
+              });
+              this.showMoveDropdown(categoryInfo.category, e.currentTarget, categoryInfo.array, categoryInfo.arrayName);
             } else {
               console.warn('[Shopline Category Manager] 無法取得分類資訊');
             }
           });
         }
+
+        // 綁定分類資訊到按鈕，避免點擊時取錯節點
+        this.buttonCategoryMap.set(moveButton, categoryInfo);
+        console.log('[Shopline Category Manager] [DEBUG] Bind button -> category:', {
+          displayName: this.getCategoryDisplayName(categoryInfo.category),
+          arrayName: categoryInfo.arrayName,
+          nodeId: node.id || '(無ID)',
+          childrenCount: categoryInfo.category?.children?.length || 0,
+        });
 
         // 在按鈕區最前面插入按鈕
         buttonArea.insertBefore(moveButton, buttonArea.firstChild);
@@ -241,29 +325,50 @@
     getCategoryFromElement(element) {
       // 嘗試從 AngularJS scope 中取得分類
       try {
-        const scope = angular.element(element).scope();
+        console.log('[Shopline Category Manager] [DEBUG] getCategoryFromElement called with element:', element.tagName, element.className);
 
-        // 方式 1: 直接從 scope.item 取得
+        // ✅ 關鍵改進：先用 closest() 定位最近的樹節點
+        let nodeEl = element.closest?.('.angular-ui-tree-node');
+        if (!nodeEl) {
+          console.warn('[Shopline Category Manager] 找不到樹節點元素');
+          return null;
+        }
+
+        console.log('[Shopline Category Manager] [DEBUG] Found tree node element:', nodeEl.tagName, nodeEl.className);
+        const nodeNameEl = nodeEl.querySelector('.ui-tree-row .cat-name');
+        console.log('[Shopline Category Manager] [DEBUG] Node name from DOM:', nodeNameEl?.textContent?.trim() || '(none)');
+
+        // ✅ 新增驗證：確保找到的節點不是更深層的嵌套節點的父節點
+        // 檢查傳入元素本身是否就是樹節點，如果是就用它
+        if (element.classList?.contains('angular-ui-tree-node')) {
+          console.log('[Shopline Category Manager] [DEBUG] Input element is already a tree node, using it directly');
+          nodeEl = element;
+        }
+
+        // ✅ 從樹節點本身的 scope 獲取 item（確保獲取到的是該節點對應的分類）
+        const scope = angular.element(nodeEl).scope();
+        console.log('[Shopline Category Manager] [DEBUG] Node scope info:', {
+          hasScope: !!scope,
+          scopeId: scope?.$id,
+          hasItem: !!scope?.item,
+          scopeKeys: scope ? Object.keys(scope).slice(0, 8) : [],
+        });
         if (scope && scope.item) {
           const itemName = this.getCategoryDisplayName(scope.item);
           const arrayInfo = this.detectCategoryArray(scope.item);
-          console.log('[Shopline Category Manager] ✓ 從 scope.item 取得分類:', itemName, '(陣列:', arrayInfo.arrayName + ')');
+          console.log('[Shopline Category Manager] ✓ 從樹節點 scope 獲取分類:', itemName, '(陣列:', arrayInfo.arrayName + ')');
+          console.log('[Shopline Category Manager] [DEBUG] Category object:', {
+            name: scope.item.name,
+            displayName: itemName,
+            hasChildren: !!scope.item.children,
+            childrenCount: scope.item.children?.length || 0,
+            nodeId: nodeEl.id || '(無ID)',
+          });
           return { category: scope.item, array: arrayInfo.array, arrayName: arrayInfo.arrayName };
         }
 
-        // 方式 2: 如果 scope 沒有 item，尋找最近的有 item 的祖先 scope
-        let currentScope = scope;
-        for (let i = 0; i < 5; i++) {
-          if (currentScope && currentScope.item) {
-            const itemName = this.getCategoryDisplayName(currentScope.item);
-            const arrayInfo = this.detectCategoryArray(currentScope.item);
-            console.log('[Shopline Category Manager] ✓ 從祖先 scope 第', i + 1, '層取得分類:', itemName, '(陣列:', arrayInfo.arrayName + ')');
-            return { category: currentScope.item, array: arrayInfo.array, arrayName: arrayInfo.arrayName };
-          }
-          currentScope = currentScope?.$parent;
-        }
-
-        console.warn('[Shopline Category Manager] ✗ 無法從任何 scope 層級取得分類');
+        // ✅ 如果樹節點的 scope 沒有 item，返回 null，不要向上遍歷
+        console.warn('[Shopline Category Manager] ✗ 樹節點 scope 沒有 item');
         if (scope) {
           console.log('[Shopline Category Manager] Scope 結構:', {
             hasItem: !!scope.item,
@@ -461,6 +566,13 @@
           item.style.backgroundColor = 'transparent';
         });
         item.addEventListener('click', () => {
+          console.log('[Shopline Category Manager] [DEBUG] Dropdown click:', {
+            sourceName: this.getCategoryDisplayName(currentCategory),
+            targetName: option.target ? this.getCategoryDisplayName(option.target) : '(根目錄)',
+            sourceLevel: this.getLevel(currentCategory, categoriesArray),
+            targetLevel: option.target ? this.getLevel(option.target, categoriesArray) : 1,
+            arrayName,
+          });
           this.moveCategory(currentCategory, option.target, categoriesArray, arrayName);
           this.removeExistingDropdown();
         });
@@ -539,18 +651,37 @@
 
       const options = [];
       const currentLevel = this.getLevel(category, categoriesArray);
+      const sourceHasChildren = category.children && category.children.length > 0;
+
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[Shopline Category Manager] 📋 開始構建移動目標選單');
+      console.log('─────────────────────────────────────────────────────────────');
+      console.log('[DEBUG] 來源分類:', {
+        name: this.getCategoryDisplayName(category),
+        currentLevel: currentLevel,
+        hasChildren: sourceHasChildren,
+        childrenCount: category.children?.length || 0,
+      });
+      console.log('[DEBUG] 陣列信息:', {
+        arraySize: categoriesArray.length,
+        firstItems: categoriesArray.slice(0, 3).map(c => this.getCategoryDisplayName(c)),
+      });
 
       // 根目錄選項
+      const rootDisabled = currentLevel === 1;
       options.push({
         label: '📂 根目錄',
         target: null,
         indent: 0,
-        disabled: currentLevel === 1,
+        disabled: rootDisabled,
       });
+      console.log('[DEBUG] 根目錄選項:', { disabled: rootDisabled, reason: rootDisabled ? '已在根層級' : '可用' });
 
       // 遞迴添加所有可用的目標分類
       this.addTargetCategoriesRecursively(categoriesArray, category, options, 0);
 
+      console.log('[DEBUG] 選單生成完成:', { totalOptions: options.length, enabledCount: options.filter(o => !o.disabled).length });
+      console.log('═══════════════════════════════════════════════════════════════');
       return options;
     }
 
@@ -559,27 +690,31 @@
      */
     addTargetCategoriesRecursively(categories, currentCategory, options, depth) {
       categories.forEach((cat) => {
+        const displayName = this.getCategoryDisplayName(cat);
+
         // 排除自己
         if (cat === currentCategory) {
-          console.log('[Shopline Category Manager] 排除自己:', cat.name);
+          console.log(`  [✗] 排除「${displayName}」: 不能移動到自己`);
           return;
         }
 
         // 排除自己的祖先（防止迴圈）- currentCategory 如果是 cat 的子孫，就不能把 cat 當成父容器
         if (isDescendant(cat, currentCategory)) {
-          console.log('[Shopline Category Manager] 排除祖先:', cat.name);
+          console.log(`  [✗] 排除「${displayName}」: 是源分類的祖先 (防止迴圈)`);
           return;
         }
 
         // 取得目標分類的層級
         const targetLevel = this.getLevel(cat);
-
-        // 排除 Level 3 分類（最深層級，不能再有子分類）
         const isLevel3 = targetLevel === 3;
 
         // 添加選項
-        const displayName = this.getCategoryDisplayName(cat);
-        console.log('[Shopline Category Manager] 添加選項:', displayName, '層級:', targetLevel, '禁用:', isLevel3);
+        if (isLevel3) {
+          console.log(`  [✗] 排除「${displayName}」: Level ${targetLevel} (最深層級，不能再有子項)`);
+        } else {
+          console.log(`  [✓] 可用「${displayName}」: Level ${targetLevel}，深度 ${depth}`);
+        }
+
         options.push({
           label: displayName,
           target: cat,
@@ -640,7 +775,34 @@
      * 使用 AngularJS scope 移動分類（主方案）
      */
     async moveCategoryUsingScope(sourceCategory, targetCategory, categoriesArray = null, arrayName = 'categories') {
+      const moveStartTime = performance.now();
       try {
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('[Shopline Category Manager] 🚀 開始移動分類');
+        console.log('─────────────────────────────────────────────────────────────');
+
+        // 📍 第1步：驗證源分類信息
+        console.log('[STEP 1] 驗證源分類...');
+        console.log('  源分類:', this.getCategoryDisplayName(sourceCategory));
+        console.log('  源有子項:', sourceCategory?.children?.length || 0);
+        const sourceLevel = this.getLevel(sourceCategory, categoriesArray);
+        console.log('  源層級:', sourceLevel);
+
+        // 📍 第2步：確定目標位置
+        console.log('[STEP 2] 驗證目標位置...');
+        const targetDisplay = targetCategory ? this.getCategoryDisplayName(targetCategory) : '(根目錄)';
+        console.log('  目標:', targetDisplay);
+        if (targetCategory) {
+          const targetLevel = this.getLevel(targetCategory, categoriesArray);
+          const targetChildrenBefore = targetCategory.children?.length || 0;
+          console.log('  目標層級:', targetLevel);
+          console.log('  目標當前子項數:', targetChildrenBefore);
+          if (targetLevel === 3) {
+            console.error('  ❌ 目標已是最深層級，不能添加子項!');
+            return false;
+          }
+        }
+
         // 如果未指定陣列，使用預設的偵測方法
         if (!categoriesArray) {
           const arrayInfo = this.detectCategoryArray(sourceCategory);
@@ -648,56 +810,136 @@
           arrayName = arrayInfo.arrayName;
         }
 
+        console.log('[STEP 3] 定位源分類在陣列中的位置...');
+        console.log('  使用陣列:', arrayName, `(${categoriesArray.length} 項)`);
+
         // 預先驗證
         const sourceParent = this.findCategoryParent(sourceCategory, categoriesArray);
         if (!sourceParent) {
-          console.error('[Shopline Category Manager] 找不到源分類的父容器（陣列:', arrayName + ')');
+          console.error('  ❌ 找不到源分類的父容器');
           return false;
         }
+
+        console.log('  ✓ 找到父容器，包含', sourceParent.length, '項');
 
         const sourceIndex = sourceParent.indexOf(sourceCategory);
         if (sourceIndex === -1) {
-          console.error('[Shopline Category Manager] 找不到源分類在陣列中的位置（陣列:', arrayName + ')');
+          console.error('  ❌ 找不到源分類在陣列中的位置');
           return false;
         }
 
+        console.log('  ✓ 源分類位置: 索引', sourceIndex);
+        console.log('  鄰近項目:', {
+          前: sourceParent[sourceIndex - 1] ? this.getCategoryDisplayName(sourceParent[sourceIndex - 1]) : '(無)',
+          現: this.getCategoryDisplayName(sourceParent[sourceIndex]),
+          後: sourceParent[sourceIndex + 1] ? this.getCategoryDisplayName(sourceParent[sourceIndex + 1]) : '(無)',
+        });
+
         // 備份狀態以供回滾
+        const targetChildrenBefore = targetCategory?.children?.length || 0;
+        const arrayLengthBefore = categoriesArray.length;
+        const sourceParentLengthBefore = sourceParent.length;
+
         const backupData = {
           sourceParent,
           sourceIndex,
-          previousChildren: targetCategory?.children?.length,
+          targetChildrenBefore,
           categoriesArray,
           arrayName,
         };
 
-        // 執行移動操作
-        sourceParent.splice(sourceIndex, 1);
+        // 📍 第4步：執行移動操作
+        console.log('[STEP 4] 執行移動操作...');
 
+        // 4a. 從源移除
+        console.log('  4a. 從源陣列移除...');
+        sourceParent.splice(sourceIndex, 1);
+        console.log('  ✓ 已從源移除，源陣列現在有', sourceParent.length, '項');
+
+
+        // 4b. 添加到目標
+        console.log('  4b. 添加到目標位置...');
         if (targetCategory === null) {
           // 移到根目錄
           categoriesArray.unshift(sourceCategory);
+          console.log('  ✓ 已添加到根目錄開頭');
         } else {
           // 移到目標分類的子分類下
           if (!targetCategory.children) {
             targetCategory.children = [];
+            console.log('  ✓ 目標首次初始化子項陣列');
           }
           targetCategory.children.push(sourceCategory);
+          console.log('  ✓ 已添加到目標的子項，目標現在有', targetCategory.children.length, '個子項');
         }
 
-        // 觸發 AngularJS 更新
+        // 📍 第5步：觸發 AngularJS 更新
+        console.log('[STEP 5] 觸發 AngularJS 更新...');
         try {
           if (this.scope.$apply) {
             this.scope.$apply();
+            console.log('  ✓ 已觸發 $apply()');
+          } else {
+            console.warn('  ⚠️  無法找到 scope，跳過 $apply()');
           }
-          console.log('[Shopline Category Manager] 成功移動到', arrayName, '陣列');
+
+          // 📍 第6步：驗證移動結果
+          console.log('[STEP 6] 驗證移動結果...');
+          const arrayLengthAfter = categoriesArray.length;
+          const sourceParentLengthAfter = sourceParent.length;
+          const targetChildrenAfter = targetCategory?.children?.length || 0;
+
+          console.log('  陣列大小對比:');
+          console.log('    - 主陣列:', arrayLengthBefore, '→', arrayLengthAfter, `(${arrayLengthBefore === arrayLengthAfter ? '✓ 不變' : '⚠️  變化'})`);
+          console.log('  源陣列對比:');
+          console.log('    - 源父容器:', sourceParentLengthBefore, '→', sourceParentLengthAfter, `(少了 ${sourceParentLengthBefore - sourceParentLengthAfter} 項 ${sourceParentLengthBefore - sourceParentLengthAfter === 1 ? '✓' : '❌'})`);
+          if (targetCategory) {
+            console.log('  目標陣列對比:');
+            console.log('    - 目標子項:', targetChildrenBefore, '→', targetChildrenAfter, `(多了 ${targetChildrenAfter - targetChildrenBefore} 項 ${targetChildrenAfter - targetChildrenBefore === 1 ? '✓' : '❌'})`);
+          }
+
+          // 驗證源分類是否真的被移除
+          const sourceStillInOldLocation = sourceParent.indexOf(sourceCategory) !== -1;
+          if (sourceStillInOldLocation) {
+            console.error('  ❌ 驗證失敗：源分類仍在舊位置!');
+            this.rollbackMove(sourceCategory, targetCategory, backupData);
+            return false;
+          }
+
+          // 驗證源分類是否已在新位置
+          let sourceInNewLocation = false;
+          if (targetCategory === null) {
+            sourceInNewLocation = categoriesArray.indexOf(sourceCategory) !== -1;
+          } else {
+            sourceInNewLocation = targetCategory.children?.indexOf(sourceCategory) !== -1;
+          }
+
+          if (!sourceInNewLocation) {
+            console.error('  ❌ 驗證失敗：源分類不在新位置!');
+            this.rollbackMove(sourceCategory, targetCategory, backupData);
+            return false;
+          }
+
+          console.log('  ✓ 驗證通過：源分類已成功移動');
+
+          const moveEndTime = performance.now();
+          const duration = (moveEndTime - moveStartTime).toFixed(2);
+          console.log('[STEP 7] 完成移動');
+          console.log('  ✅ 移動成功！耗時:', duration, 'ms');
+          console.log('═══════════════════════════════════════════════════════════════\n');
           return true;
+
         } catch (applyError) {
-          console.error('[Shopline Category Manager] $apply 失敗，正在回滾:', applyError);
+          const moveEndTime = performance.now();
+          const duration = (moveEndTime - moveStartTime).toFixed(2);
+          console.error('[Shopline Category Manager] ❌ 更新失敗，正在回滾 (耗時:', duration, 'ms):', applyError);
           this.rollbackMove(sourceCategory, targetCategory, backupData);
           return false;
         }
       } catch (error) {
-        console.error('[Shopline Category Manager] scope 移動失敗:', error);
+        const moveEndTime = performance.now();
+        const duration = (moveEndTime - moveStartTime).toFixed(2);
+        console.error('[Shopline Category Manager] ❌ 移動失敗 (耗時:', duration, 'ms):', error);
         return false;
       }
     }
@@ -748,26 +990,34 @@
      * 找到分類物件在陣列結構中的父容器
      */
     findCategoryParent(category, categoriesArray = null) {
+      const categoryName = this.getCategoryDisplayName(category);
+      console.log('[Shopline Category Manager] [DEBUG] findCategoryParent: searching for', categoryName);
+
       // 如果未指定陣列，使用預設的偵測方法
       if (!categoriesArray) {
         const arrayInfo = this.detectCategoryArray(category);
         categoriesArray = arrayInfo.array;
+        console.log('[Shopline Category Manager] [DEBUG] Auto-detected array:', arrayInfo.arrayName);
       }
 
       // 檢查根陣列
       if (categoriesArray.indexOf(category) !== -1) {
+        console.log('[Shopline Category Manager] [DEBUG] Found in root array');
         return categoriesArray;
       }
 
       // 遞迴搜尋子分類
-      const search = (categories) => {
+      const search = (categories, depth = 0) => {
+        console.log('[Shopline Category Manager] [DEBUG] Searching at depth', depth, 'with', categories.length, 'categories');
         for (const cat of categories) {
+          const catName = this.getCategoryDisplayName(cat);
           if (cat.children && cat.children.indexOf(category) !== -1) {
+            console.log('[Shopline Category Manager] [DEBUG] Found', categoryName, 'as child of', catName);
             return cat.children;
           }
 
           if (cat.children && Array.isArray(cat.children)) {
-            const result = search(cat.children);
+            const result = search(cat.children, depth + 1);
             if (result) {
               return result;
             }
@@ -776,7 +1026,11 @@
         return null;
       };
 
-      return search(categoriesArray);
+      const result = search(categoriesArray);
+      if (!result) {
+        console.warn('[Shopline Category Manager] [DEBUG] Could not find parent for', categoryName);
+      }
+      return result;
     }
 
     /**
@@ -1042,14 +1296,21 @@
         console.log('- 直接 scope:', getAngularScope(treeContainer));
         console.log('- 樹容器內容:', treeContainer.innerHTML.substring(0, 300));
 
-        // 最後的嘗試：檢查樹中的任何節點
-        const treeNode = document.querySelector('.angular-ui-tree-node');
-        if (treeNode) {
-          const nodeScope = getAngularScope(treeNode);
-          console.log('[Shopline Category Manager] 樹節點 scope:', nodeScope);
-          if (nodeScope && nodeScope.$parent && nodeScope.$parent.$parent && nodeScope.$parent.$parent.categories) {
-            console.log('[Shopline Category Manager] ✓ 在樹節點的祖先 scope 中找到 categories！');
-            const categoryManager = new CategoryManager(nodeScope.$parent.$parent);
+        console.log('[Shopline Category Manager] 嘗試從樹容器直接獲取 scope...');
+        const containerScope = getAngularScope(treeContainer);
+        if (containerScope) {
+          console.log('[Shopline Category Manager] 樹容器 scope:', containerScope);
+
+          if (containerScope.categories && Array.isArray(containerScope.categories)) {
+            console.log('[Shopline Category Manager] ✓ 從樹容器 scope 找到 categories！');
+            const categoryManager = new CategoryManager(containerScope);
+            categoryManager.initialize();
+            return;
+          }
+
+          if (containerScope.posCategories && Array.isArray(containerScope.posCategories)) {
+            console.log('[Shopline Category Manager] ✓ 從樹容器 scope 找到 posCategories！');
+            const categoryManager = new CategoryManager(containerScope);
             categoryManager.initialize();
             return;
           }
