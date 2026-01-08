@@ -355,6 +355,20 @@
         });
         if (scope && scope.item) {
           const itemName = this.getCategoryDisplayName(scope.item);
+          const domCategoryName = nodeNameEl?.textContent?.trim() || '';
+
+          // 🔴 CRITICAL VALIDATION: 驗證 scope 的 item 是否與 DOM 元素匹配
+          // 這是發現「Scope 錯位」的關鍵檢查
+          if (domCategoryName && itemName !== domCategoryName) {
+            console.error('[Shopline Category Manager] ⚠️⚠️⚠️ [SCOPE MISALIGNMENT] Scope 錯位偵測！', {
+              domName: domCategoryName,
+              scopeName: itemName,
+              scopeId: scope.$id,
+              nodeClass: nodeEl.className,
+              reason: 'DOM 節點的名稱與 AngularJS scope 返回的分類名稱不符',
+            });
+          }
+
           const arrayInfo = this.detectCategoryArray(scope.item);
           console.log('[Shopline Category Manager] ✓ 從樹節點 scope 獲取分類:', itemName, '(陣列:', arrayInfo.arrayName + ')');
           console.log('[Shopline Category Manager] [DEBUG] Category object:', {
