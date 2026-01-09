@@ -468,11 +468,15 @@ try {
 
 | 類型 | 數量 | 狀態 |
 |------|------|------|
-| Trap | 5 | ✅ 4, ❌ 1 (已被取代) |
-| Pattern | 4 | ✅ 4 |
+| Trap | 7 | ✅ 6, ❌ 1 (已被取代) |
+| Pattern | 7 | ✅ 7 |
 | Shortcut | 2 | ⚠️ 1 (需謹慎), ✅ 1 |
-| **Total** | **11** | **✅ 9, ⚠️ 1, ❌ 1** |
+| **Total** | **16** | **✅ 14, ⚠️ 1, ❌ 1** |
 
+> **2026-01-09 更新**：
+> - 新增 4 條 Code Review 經驗（Codex CLI 審查發現）
+> - 多陣列合併陷阱、Debounce 清理、防禦性字串處理、CSS Class 查詢
+>
 > **2026-01-08 更新**：
 > - 第一條 Trap「DOM 節點識別陷阱」已被取代（解決方案錯誤）
 > - Shortcut「Scope 查詢技巧」加入 scope 錯位警告
@@ -523,4 +527,156 @@ Scope 失敗時按鈕被跳過，而非使用 DOM 名稱查找正確分類。
 
 ---
 
-**最後更新**: 2026-01-08 (v2 - 修復完成，新增 4 條經驗)
+**最後更新**: 2026-01-09 (v3 - 新增 Code Review 經驗)
+
+---
+
+## [Trap] 多陣列資料合併後的單陣列操作陷阱 #data-integrity #array #cross-reference
+
+- **Context**: 搜尋功能從多個陣列（`categories` 和 `posCategories`）合併結果供用戶選擇，但後續操作只使用當前項目的陣列
+
+- **Issue**: 用戶可能選擇來自不同陣列的項目，但移動操作假設目標與源在同一陣列
+  ```javascript
+  // ❌ Bug: 搜尋結果混合兩個陣列
+  const allLevel1 = this.getLevel1Categories(currentCategory);  // 合併 categories + posCategories
+
+  // 但移動時只用當前分類的陣列
+  this.moveCategory(current, target, categoriesArray, arrayName);
+  // 如果 target 來自不同陣列，操作可能失敗或產生不一致
+  ```
+
+- **Solution**: 過濾搜尋結果只顯示同一陣列的項目
+  ```javascript
+  // ✅ 正確：限制搜尋結果到同一陣列
+  const allLevel1 = this.getLevel1Categories(currentCategory, arrayName);  // 只返回同陣列
+  ```
+
+- **When This Happens**:
+  - 系統有多個類似結構的數據源（如 Shopline 的 categories vs posCategories）
+  - UI 合併顯示但後端操作需區分來源
+  - 任何「選擇後操作」的場景
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-09
+
+---
+
+## [Pattern] Debounce 函數的完整生命週期管理 #performance #cleanup #memory
+
+- **Context**: 搜尋輸入使用 debounce 延遲執行，但 dropdown 可能在 debounce 觸發前關閉
+
+- **Issue**: 未取消的 debounce timer 會在 DOM 移除後執行，造成無效操作（雖不致命但浪費資源）
+  ```javascript
+  // ❌ 問題：dropdown 關閉時 timer 仍在等待
+  const debouncedSearch = debounce(search, 200);
+  input.addEventListener('input', debouncedSearch);
+  // dropdown 關閉 → DOM 移除 → 200ms 後 timer 觸發 → 操作已不存在的 DOM
+  ```
+
+- **Solution**: Debounce 返回帶有 `.cancel()` 方法的函數
+  ```javascript
+  // ✅ 正確：可取消的 debounce
+  debounce(func, wait) {
+    let timeout;
+    const debouncedFn = (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+    debouncedFn.cancel = () => {
+      clearTimeout(timeout);
+      timeout = null;
+    };
+    return debouncedFn;
+  }
+
+  // 關閉時清理
+  removeDropdown() {
+    if (searchSection._debouncedSearch?.cancel) {
+      searchSection._debouncedSearch.cancel();
+    }
+    dropdown.remove();
+  }
+  ```
+
+- **Rule**: 任何延遲執行的操作（debounce、throttle、setTimeout）都應該在組件/容器銷毀時清理
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-09
+
+---
+
+## [Pattern] 防禦性字串處理：安全的型別轉換 #defensive #type-safety #null-safety
+
+- **Context**: 處理來自外部數據源的值，可能是 string、number、null 或 undefined
+
+- **Issue**: 直接呼叫 `.toLowerCase()` 或其他字串方法會在非字串值上崩潰
+  ```javascript
+  // ❌ 危險：假設 name 一定是字串
+  const name = item.name.toLowerCase();  // item.name 可能是數字 ID 或 undefined
+  ```
+
+- **Solution**: 使用 `String(value ?? '')` 模式
+  ```javascript
+  // ✅ 安全：強制轉為字串，null/undefined 變空字串
+  const name = String(item.name ?? '').toLowerCase();
+
+  // 等效但更明確的寫法
+  const name = (item.name != null ? String(item.name) : '').toLowerCase();
+  ```
+
+- **Why `String()` over `.toString()`**:
+  - `String(null)` → `"null"` (安全)
+  - `null.toString()` → TypeError (崩潰)
+  - `String(undefined)` → `"undefined"` (安全)
+  - 但 `??` 運算子讓 null/undefined 先變成 `''`
+
+- **Common Patterns**:
+  ```javascript
+  String(value ?? '')          // null/undefined → ''
+  String(value || '')          // null/undefined/0/false/'' → ''
+  `${value ?? ''}`             // 模板字串版本
+  (value ?? '').toString()     // 先處理 null 再 toString
+  ```
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-09
+
+---
+
+## [Trap] 用 Inline Style 查詢 DOM 元素的脆弱性 #css #selector #maintainability
+
+- **Context**: 需要查詢動態生成的 DOM 元素（如搜尋結果列表中的每一行）
+
+- **Issue**: 用 inline style 做選擇器會在樣式變更時失效
+  ```javascript
+  // ❌ 脆弱：依賴精確的 style 文字
+  const rows = resultsList.querySelectorAll('div[style*="cursor: pointer"]');
+
+  // 如果未來改成 cursor: grab 或移除這個屬性，查詢就失效
+  ```
+
+- **Solution**: 使用有意義的 CSS class
+  ```javascript
+  // 建立元素時
+  const row = document.createElement('div');
+  row.className = 'scm-search-result-row';  // 有意義的命名
+
+  // 查詢時
+  const rows = resultsList.querySelectorAll('.scm-search-result-row');  // 穩定可靠
+  ```
+
+- **Why CSS Class Is Better**:
+  - 語意明確：class 名稱描述元素用途
+  - 樣式獨立：樣式變更不影響查詢
+  - 可維護：重構時只需改一處
+  - 性能：class 查詢比 attribute 查詢快
+
+- **Naming Convention**: `[project-prefix]-[component]-[element]`
+  - `scm-search-result-row` → Shopline Category Manager, Search, Result Row
+
+- **Status**: ✅ 已驗證
+
+- **FirstRecorded**: 2026-01-09
