@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopline 分類管理器 - 使用說明書</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-600: #4b5563;
+      --gray-800: #1f2937;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--gray-800);
+      background: var(--gray-50);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    header .version {
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      color: var(--primary);
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--gray-200);
+    }
+
+    h3 {
+      color: var(--gray-800);
+      font-size: 1.1rem;
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--gray-600);
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 1rem 1.5rem;
+      color: var(--gray-600);
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    th {
+      background: var(--gray-100);
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    tr:hover {
+      background: var(--gray-50);
+    }
+
+    code {
+      background: var(--gray-100);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+      font-size: 0.9em;
+      color: var(--primary-dark);
+    }
+
+    pre {
+      background: var(--gray-800);
+      color: #e5e7eb;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .feature-item {
+      background: var(--gray-50);
+      padding: 1rem;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .feature-item h4 {
+      color: var(--gray-800);
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-item p {
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .step-number {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .badge-success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .faq-item {
+      margin-bottom: 1.5rem;
+    }
+
+    .faq-item strong {
+      display: block;
+      color: var(--gray-800);
+      margin-bottom: 0.5rem;
+    }
+
+    .faq-item blockquote {
+      background: var(--gray-50);
+      padding: 1rem;
+      border-left: 4px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      margin: 0;
+      color: var(--gray-600);
+    }
+
+    .permission-list {
+      list-style: none;
+      margin-left: 0;
+    }
+
+    .permission-list li::before {
+      content: "✅ ";
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--gray-600);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      header {
+        padding: 2rem 1rem;
+      }
+      
+      .card {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Shopline 分類管理器</h1>
+      <p>快速移動功能 - 使用說明書</p>
+      <p class="version">版本 0.2.1-prod | 最後更新：2026-01-09</p>
+    </header>
+
+    <section class="card">
+      <h2>簡介</h2>
+      <p><strong>Shopline 分類管理器</strong>是一個 Tampermonkey/Greasemonkey 使用者腳本，為 Shopline 後台的分類管理頁面增加「快速移動」功能，讓您可以輕鬆地將分類移動到其他位置，無需繁瑣的拖曳操作。</p>
+    </section>
+
+    <section class="card">
+      <h2>功能特色</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h4>🚀 快速移動按鈕</h4>
+          <p>在每個分類的操作區新增「移動到」按鈕，點擊即可選擇目標位置</p>
+        </div>
+        <div class="feature-item">
+          <h4>🔍 搜尋過濾</h4>
+          <p>下拉選單內建搜尋框，即時過濾分類，支援中英文關鍵字</p>
+        </div>
+        <div class="feature-item">
+          <h4>🛡️ 智慧層級驗證</h4>
+          <p>自動偵測分類層級，防止違反 3 層限制</p>
+        </div>
+        <div class="feature-item">
+          <h4>💬 視覺化回饋</h4>
+          <p>成功/失敗操作即時 Toast 通知，清楚的按鈕狀態提示</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>安裝方式</h2>
+      
+      <h3>前置需求</h3>
+      <p>請先安裝以下任一瀏覽器擴充套件：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>瀏覽器</th>
+            <th>擴充套件</th>
+            <th>下載連結</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Chrome</td>
+            <td>Tampermonkey</td>
+            <td><a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank">Chrome 線上應用程式商店</a></td>
+          </tr>
+          <tr>
+            <td>Firefox</td>
+            <td>Greasemonkey</td>
+            <td><a href="https://addons.mozilla.org/firefox/addon/greasemonkey/" target="_blank">Firefox 附加元件</a></td>
+          </tr>
+          <tr>
+            <td>Edge</td>
+            <td>Tampermonkey</td>
+            <td><a href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank">Edge 附加元件</a></td>
+          </tr>
+          <tr>
+            <td>Safari</td>
+            <td>Userscripts</td>
+            <td><a href="https://apps.apple.com/app/userscripts/id1463298887" target="_blank">Mac App Store</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>安裝腳本</h3>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">確認已安裝 Tampermonkey 或 Greasemonkey</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">點擊 Tampermonkey 圖示 → 建立新腳本</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">複製 <code>shopline-category-manager.prod.user.js</code> 的完整內容</div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">貼上並儲存（Ctrl+S / Cmd+S）</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>使用方法</h2>
+      
+      <h3>步驟 1：進入分類管理頁面</h3>
+      <p>登入 Shopline 後台，進入：</p>
+      <pre><code>商店設定 → 分類管理</code></pre>
+      <p>或直接訪問：</p>
+      <pre><code>https://admin.shoplineapp.com/admin/[您的商店ID]/categories</code></pre>
+
+      <h3>步驟 2：使用移動功能</h3>
+      <ol>
+        <li>找到要移動的分類</li>
+        <li>點擊該分類右側的「<strong>移動到</strong>」按鈕</li>
+        <li>在下拉選單中選擇目標位置，或使用搜尋框過濾</li>
+        <li>點擊目標位置完成移動</li>
+      </ol>
+
+      <h3>快速操作</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>操作</th>
+            <th>說明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>移動到根層級</td>
+            <td>選擇「📁 移動到根層級」</td>
+          </tr>
+          <tr>
+            <td>移動到子分類</td>
+            <td>點擊目標父分類旁的「▶」展開子層級</td>
+          </tr>
+          <tr>
+            <td>搜尋分類</td>
+            <td>在搜尋框輸入關鍵字</td>
+          </tr>
+          <tr>
+            <td>關閉選單</td>
+            <td>點擊選單外任意位置</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>限制與注意事項</h2>
+      
+      <h3>Shopline 分類規則</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>規則</th>
+            <th>說明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-warning">最大層級</span></td>
+            <td>3 層（父 → 子 → 孫）</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-warning">特殊分類</span></td>
+            <td>「全部分類」、「未分類」等系統分類無法移動</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-warning">循環限制</span></td>
+            <td>無法將父分類移動到自己的子分類下</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>常見問題</h3>
+      <div class="faq-item">
+        <strong>Q: 為什麼某些分類的「移動到」按鈕是灰色的？</strong>
+        <blockquote>系統預設的特殊分類（如「全部分類」）無法移動。</blockquote>
+      </div>
+      <div class="faq-item">
+        <strong>Q: 為什麼選單中某些分類是灰色的？</strong>
+        <blockquote>移動到該位置會違反 3 層限制，或會造成循環參照。</blockquote>
+      </div>
+      <div class="faq-item">
+        <strong>Q: 移動後資料沒有儲存？</strong>
+        <blockquote>腳本只是在前端操作，請記得點擊 Shopline 的「儲存」按鈕。</blockquote>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>技術規格</h2>
+      
+      <h3>相容性</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>支援範圍</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>瀏覽器</td>
+            <td>Chrome 88+, Firefox 78+, Edge 88+, Safari 14+</td>
+          </tr>
+          <tr>
+            <td>Shopline 網域</td>
+            <td><code>admin.shoplineapp.com</code>, <code>*.shopline.tw</code>, <code>*.shopline.app</code></td>
+          </tr>
+          <tr>
+            <td>腳本管理器</td>
+            <td>Tampermonkey 4.0+, Greasemonkey 4.0+</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>權限說明</h3>
+      <p>此腳本使用 <code>@grant none</code>，表示：</p>
+      <ul class="permission-list">
+        <li>不需要任何特殊權限</li>
+        <li>不會存取您的個人資料</li>
+        <li>不會傳送任何資料到外部伺服器</li>
+        <li>僅在 Shopline 分類頁面運作</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>版本歷史</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>版本</th>
+            <th>日期</th>
+            <th>變更內容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-success">0.2.1-prod</span></td>
+            <td>2026-01-09</td>
+            <td>生產版本：關閉 debug 訊息、安全性改進</td>
+          </tr>
+          <tr>
+            <td>0.2.1</td>
+            <td>2026-01-08</td>
+            <td>新增搜尋過濾、修復 Scope 對齊問題</td>
+          </tr>
+          <tr>
+            <td>0.2.0</td>
+            <td>2026-01-07</td>
+            <td>新增快速移動功能</td>
+          </tr>
+          <tr>
+            <td>0.1.0</td>
+            <td>2026-01-06</td>
+            <td>初始版本</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>問題回報</h2>
+      <p>如遇到任何問題，請提供以下資訊：</p>
+      <ol>
+        <li>瀏覽器版本</li>
+        <li>Tampermonkey/Greasemonkey 版本</li>
+        <li>問題描述與截圖</li>
+        <li>Console 錯誤訊息（按 F12 開啟開發者工具）</li>
+      </ol>
+    </section>
+
+    <footer>
+      <p>MIT License - 可自由使用、修改、分發</p>
+      <p>Shopline 分類管理器 v0.2.1-prod</p>
+    </footer>
+  </div>
+</body>
+</html>
