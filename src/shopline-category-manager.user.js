@@ -198,14 +198,17 @@
     /**
      * 🆕 取得所有 Level 1 分類（根目錄的直接子項）
      * @param {Object} excludeCategory - 要排除的分類（通常是當前分類）
+     * @param {string} filterArrayName - 🔧 FIX: 限制只返回指定陣列的分類，避免跨陣列移動
      * @returns {Array} Level 1 分類陣列
      */
-    getLevel1Categories(excludeCategory = null) {
+    getLevel1Categories(excludeCategory = null, filterArrayName = null) {
       const results = [];
       const excludeId = excludeCategory?._id || excludeCategory?.id;
 
       // 從 categories 陣列取得 Level 1
-      if (this.categories && Array.isArray(this.categories)) {
+      // 🔧 FIX: 若有指定 filterArrayName，只處理該陣列
+      if ((!filterArrayName || filterArrayName === 'categories') &&
+          this.categories && Array.isArray(this.categories)) {
         for (const cat of this.categories) {
           // 排除系統分類（key 屬性為 true）
           if (cat.key) continue;
@@ -221,7 +224,9 @@
       }
 
       // 從 posCategories 陣列取得 Level 1
-      if (this.posCategories && Array.isArray(this.posCategories)) {
+      // 🔧 FIX: 若有指定 filterArrayName，只處理該陣列
+      if ((!filterArrayName || filterArrayName === 'posCategories') &&
+          this.posCategories && Array.isArray(this.posCategories)) {
         for (const cat of this.posCategories) {
           if (cat.key) continue;
           if (excludeId && (cat._id === excludeId || cat.id === excludeId)) continue;
@@ -234,7 +239,8 @@
         }
       }
 
-      console.log('[Shopline Category Manager] [Search] Level 1 categories:', results.length);
+      console.log('[Shopline Category Manager] [Search] Level 1 categories:', results.length,
+        filterArrayName ? `(filtered to ${filterArrayName})` : '(all arrays)');
       return results;
     }
 
@@ -251,8 +257,9 @@
 
       const lowerKeyword = keyword.toLowerCase().trim();
 
+      // 🔧 FIX: Safe string coercion for item.name (might be non-string)
       const filtered = categories.filter(item => {
-        const name = item.name.toLowerCase();
+        const name = String(item.name ?? '').toLowerCase();
         return name.includes(lowerKeyword);
       });
 
@@ -264,14 +271,20 @@
      * 🆕 Debounce 工具函數
      * @param {Function} func - 要延遲執行的函數
      * @param {number} wait - 延遲毫秒數
-     * @returns {Function} Debounced 函數
+     * @returns {Object} 包含 fn（debounced 函數）和 cancel（取消方法）
      */
     debounce(func, wait) {
       let timeout;
-      return (...args) => {
+      // 🔧 FIX: Return object with cancel method to prevent stale callbacks
+      const debouncedFn = (...args) => {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
       };
+      debouncedFn.cancel = () => {
+        clearTimeout(timeout);
+        timeout = null;
+      };
+      return debouncedFn;
     }
 
     /**
@@ -805,6 +818,11 @@
     removeExistingDropdown() {
       const existingDropdown = document.querySelector('[data-move-dropdown]');
       if (existingDropdown) {
+        // 🔧 FIX: Cancel any pending debounce timer to prevent stale callbacks
+        const searchSection = existingDropdown.querySelector('[data-search-section]');
+        if (searchSection && searchSection._debouncedSearch && searchSection._debouncedSearch.cancel) {
+          searchSection._debouncedSearch.cancel();
+        }
         existingDropdown.remove();
       }
     }
@@ -1137,6 +1155,8 @@
 
       categories.forEach(item => {
         const row = document.createElement('div');
+        // 🔧 FIX: Add CSS class for reliable querying
+        row.className = 'scm-search-result-row';
         row.style.cssText = `
           padding: 10px 12px;
           cursor: pointer;
@@ -1195,7 +1215,8 @@
       const resultsList = searchSection._resultsList;
 
       // 清除之前的選擇
-      const allRows = resultsList.querySelectorAll('div[style*="cursor: pointer"]');
+      // 🔧 FIX: Use CSS class instead of brittle inline style query
+      const allRows = resultsList.querySelectorAll('.scm-search-result-row');
       allRows.forEach(r => {
         r.style.background = 'white';
         if (r._radio) {
@@ -1234,7 +1255,8 @@
       const arrayName = searchSection._arrayName;
 
       // 取得所有 Level 1 分類
-      const allLevel1 = this.getLevel1Categories(currentCategory);
+      // 🔧 FIX: Pass arrayName to filter results to same array, preventing cross-array moves
+      const allLevel1 = this.getLevel1Categories(currentCategory, arrayName);
 
       // 初始顯示所有 Level 1
       this.renderSearchResults(resultsList, allLevel1, searchSection);
@@ -1247,6 +1269,9 @@
         searchSection._selectedCategory = null;
         this.updateConfirmButtonState(confirmBtn, false);
       }, 200);
+
+      // 🔧 FIX: Store debounced function for cleanup on dropdown close
+      searchSection._debouncedSearch = debouncedSearch;
 
       input.addEventListener('input', (e) => {
         debouncedSearch(e.target.value);
