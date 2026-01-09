@@ -196,6 +196,85 @@
     }
 
     /**
+     * 🆕 取得所有 Level 1 分類（根目錄的直接子項）
+     * @param {Object} excludeCategory - 要排除的分類（通常是當前分類）
+     * @returns {Array} Level 1 分類陣列
+     */
+    getLevel1Categories(excludeCategory = null) {
+      const results = [];
+      const excludeId = excludeCategory?._id || excludeCategory?.id;
+
+      // 從 categories 陣列取得 Level 1
+      if (this.categories && Array.isArray(this.categories)) {
+        for (const cat of this.categories) {
+          // 排除系統分類（key 屬性為 true）
+          if (cat.key) continue;
+          // 排除當前分類
+          if (excludeId && (cat._id === excludeId || cat.id === excludeId)) continue;
+
+          results.push({
+            category: cat,
+            name: this.getCategoryDisplayName(cat),
+            arrayName: 'categories'
+          });
+        }
+      }
+
+      // 從 posCategories 陣列取得 Level 1
+      if (this.posCategories && Array.isArray(this.posCategories)) {
+        for (const cat of this.posCategories) {
+          if (cat.key) continue;
+          if (excludeId && (cat._id === excludeId || cat.id === excludeId)) continue;
+
+          results.push({
+            category: cat,
+            name: this.getCategoryDisplayName(cat),
+            arrayName: 'posCategories'
+          });
+        }
+      }
+
+      console.log('[Shopline Category Manager] [Search] Level 1 categories:', results.length);
+      return results;
+    }
+
+    /**
+     * 🆕 根據關鍵字過濾分類（模糊匹配）
+     * @param {string} keyword - 搜尋關鍵字
+     * @param {Array} categories - 要過濾的分類陣列（來自 getLevel1Categories）
+     * @returns {Array} 符合的分類陣列
+     */
+    filterCategoriesByKeyword(keyword, categories) {
+      if (!keyword || keyword.trim() === '') {
+        return categories; // 空白關鍵字返回全部
+      }
+
+      const lowerKeyword = keyword.toLowerCase().trim();
+
+      const filtered = categories.filter(item => {
+        const name = item.name.toLowerCase();
+        return name.includes(lowerKeyword);
+      });
+
+      console.log('[Shopline Category Manager] [Search] Filtered by "' + keyword + '":', filtered.length, 'results');
+      return filtered;
+    }
+
+    /**
+     * 🆕 Debounce 工具函數
+     * @param {Function} func - 要延遲執行的函數
+     * @param {number} wait - 延遲毫秒數
+     * @returns {Function} Debounced 函數
+     */
+    debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    /**
      * 🆕 [CHANGE 2] 根據 ID 查詢分類物件
      * ✅ FIX #2: Check both _id and id properties
      */
@@ -688,6 +767,7 @@
 
     /**
      * 顯示「移動到」下拉選單（協調器）
+     * 🆕 新增搜尋區塊在頂部
      */
     showMoveDropdown(category, button, categoriesArray = null, arrayName = 'categories') {
       this.removeExistingDropdown();
@@ -700,9 +780,19 @@
       }
 
       const dropdown = this.createDropdownContainer();
-      const options = this.getValidMoveTargets(category, categoriesArray);
 
-      this.populateDropdownOptions(dropdown, options, category, categoriesArray, arrayName);
+      // 🆕 新增搜尋區塊（在樹狀選單上方）
+      const searchSection = this.createSearchSection(category, categoriesArray, arrayName);
+      dropdown.appendChild(searchSection);
+      this.attachSearchEventListeners(searchSection);
+
+      // 原有樹狀選單
+      const treeContainer = document.createElement('div');
+      treeContainer.setAttribute('data-tree-container', 'true');
+      const options = this.getValidMoveTargets(category, categoriesArray);
+      this.populateDropdownOptions(treeContainer, options, category, categoriesArray, arrayName);
+      dropdown.appendChild(treeContainer);
+
       this.positionDropdown(dropdown, button);
       document.body.appendChild(dropdown);
 
@@ -892,6 +982,291 @@
 
       dropdown.style.left = left + 'px';
       dropdown.style.top = top + 'px';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🆕 搜尋過濾功能 UI 方法
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * 🆕 建立搜尋區塊（輸入框 + 結果列表 + 確認按鈕）
+     */
+    createSearchSection(currentCategory, categoriesArray, arrayName) {
+      const section = document.createElement('div');
+      section.setAttribute('data-search-section', 'true');
+      section.style.cssText = `
+        padding: 10px;
+        border-bottom: 2px solid #e0e0e0;
+        background: #fafafa;
+      `;
+
+      // 搜尋輸入框
+      const input = this.createSearchInput();
+      section.appendChild(input);
+
+      // 搜尋結果列表
+      const resultsList = this.createSearchResultsList();
+      section.appendChild(resultsList);
+
+      // 確認按鈕
+      const confirmBtn = this.createConfirmButton();
+      section.appendChild(confirmBtn);
+
+      // 分隔說明
+      const separator = document.createElement('div');
+      separator.style.cssText = `
+        text-align: center;
+        padding: 8px;
+        color: #999;
+        font-size: 12px;
+        border-top: 1px solid #eee;
+        margin-top: 10px;
+      `;
+      separator.textContent = '─── 或從樹狀結構選擇 ───';
+      section.appendChild(separator);
+
+      // 儲存參考以便後續使用
+      section._searchInput = input;
+      section._resultsList = resultsList;
+      section._confirmBtn = confirmBtn;
+      section._currentCategory = currentCategory;
+      section._categoriesArray = categoriesArray;
+      section._arrayName = arrayName;
+      section._selectedCategory = null;
+
+      return section;
+    }
+
+    /**
+     * 🆕 建立搜尋輸入框
+     */
+    createSearchInput() {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = '🔍 搜尋父項目...';
+      input.setAttribute('data-search-input', 'true');
+      input.style.cssText = `
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.2s;
+      `;
+
+      // Focus 樣式
+      input.addEventListener('focus', () => {
+        input.style.borderColor = '#4a90d9';
+      });
+      input.addEventListener('blur', () => {
+        input.style.borderColor = '#ddd';
+      });
+
+      return input;
+    }
+
+    /**
+     * 🆕 建立搜尋結果列表容器
+     */
+    createSearchResultsList() {
+      const list = document.createElement('div');
+      list.setAttribute('data-search-results', 'true');
+      list.style.cssText = `
+        max-height: 150px;
+        overflow-y: auto;
+        margin-top: 8px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        background: white;
+      `;
+      return list;
+    }
+
+    /**
+     * 🆕 建立確認移動按鈕
+     */
+    createConfirmButton() {
+      const btn = document.createElement('button');
+      btn.textContent = '確認移動';
+      btn.setAttribute('data-confirm-btn', 'true');
+      btn.disabled = true;
+      btn.style.cssText = `
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: not-allowed;
+        background: #ccc;
+        color: white;
+        transition: all 0.2s;
+      `;
+      return btn;
+    }
+
+    /**
+     * 🆕 更新確認按鈕狀態
+     */
+    updateConfirmButtonState(btn, enabled) {
+      btn.disabled = !enabled;
+      if (enabled) {
+        btn.style.background = '#4a90d9';
+        btn.style.cursor = 'pointer';
+      } else {
+        btn.style.background = '#ccc';
+        btn.style.cursor = 'not-allowed';
+      }
+    }
+
+    /**
+     * 🆕 渲染搜尋結果到列表
+     */
+    renderSearchResults(resultsList, categories, searchSection) {
+      resultsList.innerHTML = '';
+
+      if (categories.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding: 12px; text-align: center; color: #999;';
+        empty.textContent = '無符合項目';
+        resultsList.appendChild(empty);
+        return;
+      }
+
+      categories.forEach(item => {
+        const row = document.createElement('div');
+        row.style.cssText = `
+          padding: 10px 12px;
+          cursor: pointer;
+          border-bottom: 1px solid #f0f0f0;
+          display: flex;
+          align-items: center;
+          transition: background 0.2s;
+        `;
+
+        // Radio 按鈕樣式
+        const radio = document.createElement('span');
+        radio.style.cssText = `
+          width: 16px;
+          height: 16px;
+          border: 2px solid #ccc;
+          border-radius: 50%;
+          margin-right: 10px;
+          display: inline-block;
+          box-sizing: border-box;
+        `;
+
+        const label = document.createElement('span');
+        label.textContent = item.name;
+        label.style.fontSize = '14px';
+
+        row.appendChild(radio);
+        row.appendChild(label);
+
+        // Hover 效果
+        row.addEventListener('mouseenter', () => {
+          if (searchSection._selectedCategory !== item) {
+            row.style.background = '#f5f5f5';
+          }
+        });
+        row.addEventListener('mouseleave', () => {
+          if (searchSection._selectedCategory !== item) {
+            row.style.background = 'white';
+          }
+        });
+
+        // 點擊選擇
+        row.addEventListener('click', () => {
+          this.handleSearchItemSelect(item, row, radio, searchSection);
+        });
+
+        row._item = item;
+        row._radio = radio;
+        resultsList.appendChild(row);
+      });
+    }
+
+    /**
+     * 🆕 處理搜尋項目選擇
+     */
+    handleSearchItemSelect(item, row, radio, searchSection) {
+      const resultsList = searchSection._resultsList;
+
+      // 清除之前的選擇
+      const allRows = resultsList.querySelectorAll('div[style*="cursor: pointer"]');
+      allRows.forEach(r => {
+        r.style.background = 'white';
+        if (r._radio) {
+          r._radio.style.borderColor = '#ccc';
+          r._radio.style.background = 'white';
+        }
+      });
+
+      // 設定新選擇
+      if (searchSection._selectedCategory === item) {
+        // 點擊已選中的項目 = 取消選擇
+        searchSection._selectedCategory = null;
+        this.updateConfirmButtonState(searchSection._confirmBtn, false);
+      } else {
+        // 選中新項目
+        searchSection._selectedCategory = item;
+        row.style.background = '#e3f2fd';
+        radio.style.borderColor = '#4a90d9';
+        radio.style.background = '#4a90d9';
+        this.updateConfirmButtonState(searchSection._confirmBtn, true);
+      }
+
+      console.log('[Shopline Category Manager] [Search] Selected:',
+        searchSection._selectedCategory?.name || '(none)');
+    }
+
+    /**
+     * 🆕 綁定搜尋區塊事件監聽器
+     */
+    attachSearchEventListeners(searchSection) {
+      const input = searchSection._searchInput;
+      const resultsList = searchSection._resultsList;
+      const confirmBtn = searchSection._confirmBtn;
+      const currentCategory = searchSection._currentCategory;
+      const categoriesArray = searchSection._categoriesArray;
+      const arrayName = searchSection._arrayName;
+
+      // 取得所有 Level 1 分類
+      const allLevel1 = this.getLevel1Categories(currentCategory);
+
+      // 初始顯示所有 Level 1
+      this.renderSearchResults(resultsList, allLevel1, searchSection);
+
+      // 即時搜尋（debounce 200ms）
+      const debouncedSearch = this.debounce((keyword) => {
+        const filtered = this.filterCategoriesByKeyword(keyword, allLevel1);
+        this.renderSearchResults(resultsList, filtered, searchSection);
+        // 清除選擇
+        searchSection._selectedCategory = null;
+        this.updateConfirmButtonState(confirmBtn, false);
+      }, 200);
+
+      input.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
+      });
+
+      // 確認按鈕點擊
+      confirmBtn.addEventListener('click', () => {
+        if (searchSection._selectedCategory) {
+          const targetCategory = searchSection._selectedCategory.category;
+
+          console.log('[Shopline Category Manager] [Search] Confirm move to:',
+            searchSection._selectedCategory.name);
+
+          // 執行移動（移動到目標分類作為子項）
+          this.moveCategory(currentCategory, targetCategory, categoriesArray, arrayName);
+
+          // 關閉 dropdown
+          this.removeExistingDropdown();
+        }
+      });
     }
 
     /**
