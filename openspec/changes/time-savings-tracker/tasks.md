@@ -26,27 +26,37 @@ calculateTimeSaved(100, 3, false)
 ---
 
 ### Task 1.2: 整合到移動成功流程
+- [ ] 調整 `TOAST_SUCCESS_DURATION_MS` 從 2000 改為 3500 毫秒
 - [ ] 在 `moveCategory` 方法中追蹤必要參數
 - [ ] 計算目標層級（`getLevel` 方法）
-- [ ] 偵測是否使用搜尋功能
-- [ ] 呼叫 `calculateTimeSaved`
-- [ ] 更新成功訊息格式
+- [ ] 偵測是否使用搜尋功能（暫時固定為 false）
+- [ ] 呼叫 `calculateTimeSaved` 和 `tracker.recordMove()`
+- [ ] 更新成功訊息為增強型 Toast 格式（三行）
 
-**檔案位置**: `src/shopline-category-manager.user.js` (Line 1567，`showSuccessMessage` 呼叫處)
+**檔案位置**:
+- Constants: Line ~104（`TOAST_SUCCESS_DURATION_MS`）
+- moveCategory: Line ~1567（`showSuccessMessage` 呼叫處）
 
 **修改範例**:
 ```javascript
+// 1. 調整常數（Line ~104）
+static TOAST_SUCCESS_DURATION_MS = 3500;  // 從 2000 改為 3500
+
+// 2. 整合到 moveCategory（Line ~1567）
 if (success) {
   // 計算時間節省
   const categoryCount = this.categories.length + this.posCategories.length;
   const targetLevel = this.getLevel(targetCategory, categoriesArray);
   const usedSearch = false; // 暫時先固定為 false
 
-  const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
+  const result = this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
+  const stats = this.tracker.getStats();
 
-  // 顯示增強訊息
+  // 顯示增強型 Toast（三行格式）
   this.showSuccessMessage(
-    `✅ 移動成功！\n⏱️  節省了 ${result.timeSaved} 秒`
+    `✅ 移動成功！\n` +
+    `⏱️  本次節省 ${result.thisMove} 秒\n` +
+    `📊 總計: ${stats.totalMoves} 次 / ${stats.totalMinutes} 分鐘`
   );
 }
 ```
