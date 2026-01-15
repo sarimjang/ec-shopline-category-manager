@@ -43,8 +43,8 @@ cat > .releases/updates.json <<EOF
   "versions": [
     {
       "version": "${VERSION}",
-      "updateURL": "https://raw.githubusercontent.com/sarimjang/shopline-category-manager/main/.releases/updates.json",
-      "downloadURL": "https://github.com/sarimjang/shopline-category-manager/releases/download/${TAG}/shopline-category-manager.prod.user.js",
+      "updateURL": "https://raw.githubusercontent.com/sarimjang/ec-shopline-category-manager/main/.releases/updates.json",
+      "downloadURL": "https://github.com/sarimjang/ec-shopline-category-manager/releases/download/${TAG}/shopline-category-manager.prod.user.js",
       "changelog": "${CHANGELOG}",
       "released": "$(date +%Y-%m-%d)"
     }
@@ -79,8 +79,8 @@ echo "================================================"
 echo "✅ 發布完成！"
 echo "================================================"
 echo "版本: ${VERSION}"
-echo "Release URL: https://github.com/sarimjang/shopline-category-manager/releases/tag/${TAG}"
-echo "下載 URL: https://github.com/sarimjang/shopline-category-manager/releases/download/${TAG}/shopline-category-manager.prod.user.js"
+echo "Release URL: https://github.com/sarimjang/ec-shopline-category-manager/releases/tag/${TAG}"
+echo "下載 URL: https://github.com/sarimjang/ec-shopline-category-manager/releases/download/${TAG}/shopline-category-manager.prod.user.js"
 echo ""
 echo "用戶將在 24 小時內自動收到更新通知"
 echo "================================================"

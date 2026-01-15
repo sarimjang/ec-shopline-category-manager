@@ -2,8 +2,8 @@
   "versions": [
     {
       "version": "0.2.1",
-      "updateURL": "https://raw.githubusercontent.com/sarimjang/shopline-category-manager/main/.releases/updates.json",
-      "downloadURL": "https://github.com/sarimjang/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js",
+      "updateURL": "https://raw.githubusercontent.com/sarimjang/ec-shopline-category-manager/main/.releases/updates.json",
+      "downloadURL": "https://github.com/sarimjang/ec-shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js",
       "changelog": "初始生產版本：\n- 完成作用域對齊修復\n- 移除魔法數字\n- 新增完整的空值檢查\n- 完善錯誤處理機制",
       "released": "2026-01-15"
     }
