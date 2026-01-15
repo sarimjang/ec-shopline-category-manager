@@ -94,22 +94,26 @@
   }
 
   /**
-   * 計算時間節省
+   * 計算時間節省（非線性成長模型）
    *
-   * @param {number} categoryCount - 分類總數（影響捲動尋找時間）
-   * @param {number} targetLevel - 目標層級 1-3（影響對齊時間）
+   * 模型設計：
+   * - 視覺搜尋：sqrt(categoryCount) - 認知心理學研究表明視覺搜尋時間呈次線性成長
+   * - 捲動時間：線性成長 - 捲動距離正比於分類數
+   * - 對齊時間：層級越深越困難
+   *
+   * @param {number} categoryCount - 分類總數（影響視覺搜尋和捲動時間）
+   * @param {number} targetLevel - 目標層級 1-3（影響對齊難度）
    * @param {boolean} usedSearch - 是否使用搜尋功能
    * @returns {{dragTime: number, toolTime: number, timeSaved: number}}
    */
   function calculateTimeSaved(categoryCount, targetLevel, usedSearch) {
-    // 拖動時間 = 基礎時間(4秒) + (分類數 / 10) × 0.5秒 + 目標層級 × 1秒
-    const baseTime = 4;
-    const scrollTimePerCategory = 0.5;
-    const levelAdjustment = 1;
+    // 時間組成部分
+    const baseTime = 2;                                    // 基礎操作時間（抓取 + 放開 + 確認）
+    const visualSearchTime = Math.sqrt(categoryCount) * 0.3; // 視覺搜尋時間（非線性）
+    const scrollTime = categoryCount * 0.05;               // 捲動時間（線性）
+    const alignmentTime = targetLevel * 1.5;               // 對齊時間（層級影響）
 
-    const dragTime = baseTime +
-                     (categoryCount / 10) * scrollTimePerCategory +
-                     targetLevel * levelAdjustment;
+    const dragTime = baseTime + visualSearchTime + scrollTime + alignmentTime;
 
     // 工具時間 = 2.5秒（使用搜尋）或 3.5秒（瀏覽選單）
     const toolTime = usedSearch ? 2.5 : 3.5;
