@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shopline 分類管理 - 快速移動 (Production)
-// @namespace    https://github.com/yourname/shopline-category-manager
+// @namespace    https://github.com/sarimjang/shopline-category-manager
 // @version      0.2.1
 // @description  在 Shopline 分類管理頁面添加「移動到」按鈕，支援快速分類重新整理
 // @author       Development Team
@@ -9,10 +9,10 @@
 // @match        https://*.shopline.app/admin/*/categories*
 // @grant        none
 // @run-at       document-end
-// @homepage     https://github.com/yourname/shopline-category-manager
-// @supportURL   https://github.com/yourname/shopline-category-manager/issues
-// @updateURL    https://raw.githubusercontent.com/yourname/shopline-category-manager/main/.releases/updates.json
-// @downloadURL  https://github.com/yourname/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js
+// @homepage     https://github.com/sarimjang/shopline-category-manager
+// @supportURL   https://github.com/sarimjang/shopline-category-manager/issues
+// @updateURL    https://raw.githubusercontent.com/sarimjang/shopline-category-manager/main/.releases/updates.json
+// @downloadURL  https://github.com/sarimjang/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js
 // ==/UserScript==
 
 /**

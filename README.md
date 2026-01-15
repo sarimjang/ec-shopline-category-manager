@@ -1,8 +1,8 @@
 # Shopline Category Manager - 快速移動工具
 
-[![GitHub Release](https://img.shields.io/github/release/yourname/shopline-category-manager.svg)](https://github.com/yourname/shopline-category-manager/releases)
+[![GitHub Release](https://img.shields.io/github/release/sarimjang/shopline-category-manager.svg)](https://github.com/sarimjang/shopline-category-manager/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Actions](https://github.com/yourname/shopline-category-manager/actions/workflows/test.yml/badge.svg)](https://github.com/yourname/shopline-category-manager/actions)
+[![GitHub Actions](https://github.com/sarimjang/shopline-category-manager/actions/workflows/test.yml/badge.svg)](https://github.com/sarimjang/shopline-category-manager/actions)
 
 > 在 Shopline 分類管理頁面添加「移動到」按鈕，支持快速分類重新整理和搜尋過濾。
 
@@ -39,7 +39,7 @@
 
 ### 2️⃣ 下載並安裝腳本
 
-訪問 [Releases 頁面](https://github.com/yourname/shopline-category-manager/releases) 下載最新版本。
+訪問 [Releases 頁面](https://github.com/sarimjang/shopline-category-manager/releases) 下載最新版本。
 
 **推薦**：下載生產版本 `shopline-category-manager.prod.user.js`
 
@@ -67,7 +67,7 @@
 
 ```bash
 # 克隆倉庫
-git clone https://github.com/yourname/shopline-category-manager.git
+git clone https://github.com/sarimjang/shopline-category-manager.git
 cd shopline-category-manager
 
 # 安裝依賴
@@ -131,7 +131,7 @@ git push origin main v0.2.2
 
 ### 報告 Bug
 
-1. 檢查 [Issues](https://github.com/yourname/shopline-category-manager/issues)
+1. 檢查 [Issues](https://github.com/sarimjang/shopline-category-manager/issues)
 2. 如果沒有相同 Issue，創建新 Issue 並提供：
    - 問題描述
    - 重現步驟
@@ -140,7 +140,7 @@ git push origin main v0.2.2
 
 ### 功能建議
 
-1. 訪問 [Discussions](https://github.com/yourname/shopline-category-manager/discussions)
+1. 訪問 [Discussions](https://github.com/sarimjang/shopline-category-manager/discussions)
 2. 描述你的想法
 3. 社區投票支持
 
@@ -192,8 +192,8 @@ MIT License - 詳見 [LICENSE](LICENSE) 文件
 
 ## 📞 聯繫和支持
 
-- 🐛 **Bug 報告**: [GitHub Issues](https://github.com/yourname/shopline-category-manager/issues)
-- 💬 **討論**: [GitHub Discussions](https://github.com/yourname/shopline-category-manager/discussions)
+- 🐛 **Bug 報告**: [GitHub Issues](https://github.com/sarimjang/shopline-category-manager/issues)
+- 💬 **討論**: [GitHub Discussions](https://github.com/sarimjang/shopline-category-manager/discussions)
 - 📧 **郵件**: 參考 GitHub 個人主頁
 
 ## 🙏 致謝

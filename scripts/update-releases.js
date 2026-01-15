@@ -11,7 +11,7 @@ const path = require('path');
 
 const UPDATES_FILE = path.join(__dirname, '../.releases/updates.json');
 const CHANGELOG_FILE = path.join(__dirname, '../CHANGELOG.md');
-const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'yourname';
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'sarimjang';
 const REPO_NAME = 'shopline-category-manager';
 
 function extractVersionsFromChangelog() {

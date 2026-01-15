@@ -4,10 +4,10 @@
   "description": "Shopline 分類管理快速移動工具 - 在分類管理頁面添加快速移動按鈕和搜尋過濾功能",
   "author": "Development Team",
   "license": "MIT",
-  "homepage": "https://github.com/yourname/shopline-category-manager",
+  "homepage": "https://github.com/sarimjang/shopline-category-manager",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourname/shopline-category-manager.git"
+    "url": "https://github.com/sarimjang/shopline-category-manager.git"
   },
   "keywords": [
     "shopline",

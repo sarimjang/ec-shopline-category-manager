@@ -13,7 +13,7 @@
 
 ### 第 2 步：下載並安裝腳本
 
-1. 訪問 [GitHub Releases 頁面](https://github.com/yourname/shopline-category-manager/releases)
+1. 訪問 [GitHub Releases 頁面](https://github.com/sarimjang/shopline-category-manager/releases)
 2. 下載最新版本的腳本：
    - **生產版本** (推薦): `shopline-category-manager.prod.user.js` - 完整功能，約 40KB
    - **最小化版本**: `shopline-category-manager.min.user.js` - 優化版本，約 22KB（推薦用於較慢的網絡）
@@ -73,11 +73,11 @@
 **A:** 有兩種方式：
 
 1. **自動更新** (推薦): Tampermonkey 會自動檢查更新，發現新版本時通知你
-2. **手動更新**: 訪問 [Releases 頁面](https://github.com/yourname/shopline-category-manager/releases) 下載最新版本
+2. **手動更新**: 訪問 [Releases 頁面](https://github.com/sarimjang/shopline-category-manager/releases) 下載最新版本
 
 ### Q: 如何報告 Bug 或提出功能建議？
 
-**A:** 請訪問 [GitHub Issues](https://github.com/yourname/shopline-category-manager/issues)
+**A:** 請訪問 [GitHub Issues](https://github.com/sarimjang/shopline-category-manager/issues)
 
 - 查看是否已有相同的 Issue
 - 如果沒有，點擊「New issue」建立新的 Issue
@@ -111,7 +111,7 @@
 
 1. **使用最小化版本**: 下載 `shopline-category-manager.min.user.js` 而不是生產版本
 2. **檢查其他腳本**: 如果安裝了多個 Tampermonkey 腳本，可能會有衝突
-3. **報告問題**: 如果性能問題持續，請在 [GitHub Issues](https://github.com/yourname/shopline-category-manager/issues) 報告
+3. **報告問題**: 如果性能問題持續，請在 [GitHub Issues](https://github.com/sarimjang/shopline-category-manager/issues) 報告
 
 ### 移動失敗
 
@@ -123,8 +123,8 @@
 
 - 📖 **[完整文檔](../README.md)**
 - 🔧 **[開發指南](./DEVELOPMENT.md)**
-- 🐛 **[報告 Bug](https://github.com/yourname/shopline-category-manager/issues)**
-- 💬 **[討論區](https://github.com/yourname/shopline-category-manager/discussions)**
+- 🐛 **[報告 Bug](https://github.com/sarimjang/shopline-category-manager/issues)**
+- 💬 **[討論區](https://github.com/sarimjang/shopline-category-manager/discussions)**
 
 ## 更新日誌
 

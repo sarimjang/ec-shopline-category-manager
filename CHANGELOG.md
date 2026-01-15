@@ -71,7 +71,7 @@
 - Tampermonkey 會自動檢查更新，無需手動操作
 
 **手動更新**:
-1. 訪問 [GitHub Releases](https://github.com/yourname/shopline-category-manager/releases)
+1. 訪問 [GitHub Releases](https://github.com/sarimjang/shopline-category-manager/releases)
 2. 下載最新版本
 3. Tampermonkey 會自動提示替換
 
@@ -93,7 +93,7 @@
 感謝對本項目的貢獻！
 
 ### 報告 Bug
-1. 檢查 [Issues](https://github.com/yourname/shopline-category-manager/issues) 中是否已有報告
+1. 檢查 [Issues](https://github.com/sarimjang/shopline-category-manager/issues) 中是否已有報告
 2. 如果沒有，創建新 Issue 並提供：
    - 問題描述
    - 重現步驟
@@ -101,7 +101,7 @@
    - 瀏覽器版本和操作系統
 
 ### 提功能建議
-1. 訪問 [Discussions](https://github.com/yourname/shopline-category-manager/discussions)
+1. 訪問 [Discussions](https://github.com/sarimjang/shopline-category-manager/discussions)
 2. 描述你的想法
 3. 社區可以投票支持或討論
 
@@ -134,6 +134,6 @@ MIT License - 見 [LICENSE](LICENSE) 文件
 
 ## 聯繫方式
 
-- 🐛 Bug 報告: [Issues](https://github.com/yourname/shopline-category-manager/issues)
-- 💬 討論: [Discussions](https://github.com/yourname/shopline-category-manager/discussions)
-- 🌐 網站: [GitHub 倉庫](https://github.com/yourname/shopline-category-manager)
+- 🐛 Bug 報告: [Issues](https://github.com/sarimjang/shopline-category-manager/issues)
+- 💬 討論: [Discussions](https://github.com/sarimjang/shopline-category-manager/discussions)
+- 🌐 網站: [GitHub 倉庫](https://github.com/sarimjang/shopline-category-manager)

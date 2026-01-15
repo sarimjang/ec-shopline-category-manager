@@ -13,7 +13,7 @@
 
 ```bash
 # 克隆倉庫
-git clone https://github.com/yourname/shopline-category-manager.git
+git clone https://github.com/sarimjang/shopline-category-manager.git
 cd shopline-category-manager
 
 # 安裝 Node.js 依賴
@@ -309,6 +309,6 @@ npm run build:prod
 ## 聯繫和貢獻
 
 - 📖 **[用戶指南](./INSTALL.md)**
-- 🐛 **[報告 Bug](https://github.com/yourname/shopline-category-manager/issues)**
-- 💬 **[討論](https://github.com/yourname/shopline-category-manager/discussions)**
+- 🐛 **[報告 Bug](https://github.com/sarimjang/shopline-category-manager/issues)**
+- 💬 **[討論](https://github.com/sarimjang/shopline-category-manager/discussions)**
 - 🔀 **[貢獻指南](../README.md#貢獻)**
