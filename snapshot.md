@@ -16,6 +16,11 @@
 │   ├── DEVELOPMENT.md
 │   └── INSTALL.md
 ├── openspec
+│   ├── changes
+│   │   └── time-savings-tracker
+│   │       ├── metadata.json
+│   │       ├── spec.md
+│   │       └── tasks.md
 │   └── specs
 ├── scripts
 │   ├── bump-version.js
