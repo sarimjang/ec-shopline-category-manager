@@ -2,13 +2,13 @@
 
 ## Phase 1: 靜態估算模型
 
-### Task 1.1: 實作時間計算函數
-- [ ] 在工具函數區域加入 `calculateTimeSaved` 函數
-- [ ] 實作基礎時間計算邏輯
-- [ ] 實作分類數量影響係數
-- [ ] 實作層級影響係數
-- [ ] 實作搜尋使用影響
-- [ ] 單元測試：各種參數組合
+### Task 1.1: 實作時間計算函數 ✅
+- [x] 在工具函數區域加入 `calculateTimeSaved` 函數
+- [x] 實作基礎時間計算邏輯
+- [x] 實作分類數量影響係數
+- [x] 實作層級影響係數
+- [x] 實作搜尋使用影響
+- [x] 單元測試：各種參數組合
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line ~95，工具函數區域結束處)
 
@@ -25,10 +25,10 @@ calculateTimeSaved(100, 3, false)
 
 ---
 
-### Task 1.2: 修改 showSuccessMessage 支援多行
-- [ ] 在 `showSuccessMessage` 方法加入 `white-space: pre-line` CSS 屬性
-- [ ] 加入 `line-height: 1.6` 提升可讀性
-- [ ] 測試 `\n` 換行符號正確渲染
+### Task 1.2: 修改 showSuccessMessage 支援多行 ✅
+- [x] 在 `showSuccessMessage` 方法加入 `white-space: pre-line` CSS 屬性
+- [x] 加入 `line-height: 1.6` 提升可讀性
+- [x] 測試 `\n` 換行符號正確渲染
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line ~2110，showSuccessMessage 方法)
 
@@ -58,14 +58,14 @@ showSuccessMessage(message) {
 
 ---
 
-### Task 1.3: 整合到移動成功流程
-- [ ] 調整 `TOAST_SUCCESS_DURATION_MS` 從 2000 改為 3500 毫秒
-- [ ] 在 `moveCategory` 方法中追蹤必要參數
-- [ ] 計算目標層級（`getLevel` 方法）
-- [ ] 讀取搜尋使用標記（`this._lastMoveUsedSearch`，初期版本固定為 false）
-- [ ] 呼叫 `calculateTimeSaved` 和 `tracker.recordMove()`
-- [ ] 更新成功訊息為增強型 Toast 格式（三行）
-- [ ] 重置搜尋使用標記為 false
+### Task 1.3: 整合到移動成功流程 ✅
+- [x] 調整 `TOAST_SUCCESS_DURATION_MS` 從 2000 改為 3500 毫秒
+- [x] 在 `moveCategory` 方法中追蹤必要參數
+- [x] 計算目標層級（`getLevel` 方法）
+- [x] 讀取搜尋使用標記（`this._lastMoveUsedSearch`，初期版本固定為 false）
+- [x] 呼叫 `calculateTimeSaved` 和 `tracker.recordMove()`
+- [x] 更新成功訊息為增強型 Toast 格式（三行）
+- [x] 重置搜尋使用標記為 false
 
 **檔案位置**:
 - Constants: Line ~104（`TOAST_SUCCESS_DURATION_MS`）
@@ -102,15 +102,15 @@ if (success) {
 
 ## Phase 2: 累積統計追蹤
 
-### Task 2.1: 實作 TimeSavingsTracker 類別
-- [ ] 建立 `TimeSavingsTracker` 類別
-- [ ] 實作 `loadStats()` 從 localStorage 載入
-- [ ] 實作 `saveStats()` 儲存到 localStorage
-- [ ] 實作 `recordMove()` 記錄單次移動
-- [ ] 實作 `getStats()` 取得統計數據
-- [ ] 實作 `showStats()` 格式化顯示統計
-- [ ] 實作 `resetStats()` 重置統計
-- [ ] 加入錯誤處理（localStorage 可能失敗）
+### Task 2.1: 實作 TimeSavingsTracker 類別 ✅
+- [x] 建立 `TimeSavingsTracker` 類別
+- [x] 實作 `loadStats()` 從 localStorage 載入
+- [x] 實作 `saveStats()` 儲存到 localStorage
+- [x] 實作 `recordMove()` 記錄單次移動
+- [x] 實作 `getStats()` 取得統計數據
+- [x] 實作 `showStats()` 格式化顯示統計
+- [x] 實作 `resetStats()` 重置統計
+- [x] 加入錯誤處理（localStorage 可能失敗）
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line ~150，在 CategoryManager 類別之前)
 
@@ -125,11 +125,11 @@ if (success) {
 
 ---
 
-### Task 2.2: 整合 Tracker 到 CategoryManager
-- [ ] 在 `CategoryManager` 建構子初始化 tracker
-- [ ] 在建構子初始化 `_lastMoveUsedSearch` 標記
-- [ ] 在 `moveCategory` 成功時呼叫 `tracker.recordMove()`（已在 Task 1.3 完成）
-- [ ] 處理 tracker 錯誤（不應影響主要功能）
+### Task 2.2: 整合 Tracker 到 CategoryManager ✅
+- [x] 在 `CategoryManager` 建構子初始化 tracker
+- [x] 在建構子初始化 `_lastMoveUsedSearch` 標記
+- [x] 在 `moveCategory` 成功時呼叫 `tracker.recordMove()`（已在 Task 1.3 完成）
+- [x] 處理 tracker 錯誤（不應影響主要功能）
 
 **檔案位置**:
 - Constructor: Line ~114
@@ -150,10 +150,10 @@ constructor(scope) {
 
 ---
 
-### Task 2.3: 加入搜尋確認按鈕事件處理
-- [ ] 在搜尋確認按鈕點擊時設置 `this._lastMoveUsedSearch = true`
-- [ ] 測試搜尋功能正確設置標記
-- [ ] 測試非搜尋移動保持標記為 false
+### Task 2.3: 加入搜尋確認按鈕事件處理 ✅
+- [x] 在搜尋確認按鈕點擊時設置 `this._lastMoveUsedSearch = true`
+- [x] 測試搜尋功能正確設置標記
+- [x] 測試非搜尋移動保持標記為 false
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line ~1422，createSearchSection 或 attachSearchEventListeners)
 
@@ -171,9 +171,9 @@ confirmBtn.addEventListener('click', () => {
 
 ---
 
-### Task 2.4: 更新 UserScript Metadata
-- [ ] 加入 `@grant GM_registerMenuCommand`
-- [ ] 同步更新 `.prod.user.js`
+### Task 2.4: 更新 UserScript Metadata ✅
+- [x] 加入 `@grant GM_registerMenuCommand`
+- [x] 同步更新 `.prod.user.js`
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line 1-11)
 
@@ -190,11 +190,11 @@ confirmBtn.addEventListener('click', () => {
 
 ---
 
-### Task 2.5: 實作 Tampermonkey 選單整合
-- [ ] 註冊「📊 查看時間統計」選單項目
-- [ ] 註冊「🔄 重置統計」選單項目
-- [ ] 實作選單觸發邏輯
-- [ ] 加入確認對話框（重置功能）
+### Task 2.5: 實作 Tampermonkey 選單整合 ✅
+- [x] 註冊「📊 查看時間統計」選單項目
+- [x] 註冊「🔄 重置統計」選單項目
+- [x] 實作選單觸發邏輯
+- [x] 加入確認對話框（重置功能）
 
 **檔案位置**: `src/shopline-category-manager.user.js` (在 `init()` 函數內，Line ~2400)
 
