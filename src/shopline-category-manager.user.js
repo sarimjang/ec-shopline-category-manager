@@ -2118,15 +2118,17 @@
         }
 
         // 📍 Step 8: 解析響應
-        let responseData;
+        // 先讀取為 text，避免 Response body stream 被消耗後無法重複讀取
+        const responseText = await response.text();
+        
         try {
-          responseData = await response.json();
+          const responseData = JSON.parse(responseText);
           console.log('[Shopline Category Manager] [API] ✅ API 調用成功！');
           console.log('[Shopline Category Manager] [API] 回應:', JSON.stringify(responseData, null, 2));
           return { success: true };
         } catch (parseError) {
           console.warn('[Shopline Category Manager] [API] ⚠️  無法解析 JSON 響應，但狀態碼為 200');
-          console.log('[Shopline Category Manager] [API] 響應文本:', await response.text());
+          console.log('[Shopline Category Manager] [API] 響應文本:', responseText);
           return { success: true }; // 狀態碼 200，視為成功
         }
 
