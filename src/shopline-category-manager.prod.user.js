@@ -7,7 +7,7 @@
 // @match        https://admin.shoplineapp.com/admin/*/categories*
 // @match        https://*.shopline.tw/admin/*/categories*
 // @match        https://*.shopline.app/admin/*/categories*
-// @grant        none
+// @grant        GM_registerMenuCommand
 // @run-at       document-end
 // @homepage     https://github.com/sarimjang/shopline-category-manager
 // @supportURL   https://github.com/sarimjang/shopline-category-manager/issues
@@ -98,6 +98,156 @@
     return descendants;
   }
 
+  /**
+   * 計算時間節省
+   *
+   * @param {number} categoryCount - 分類總數（影響捲動尋找時間）
+   * @param {number} targetLevel - 目標層級 1-3（影響對齊時間）
+   * @param {boolean} usedSearch - 是否使用搜尋功能
+   * @returns {{dragTime: number, toolTime: number, timeSaved: number}}
+   */
+  function calculateTimeSaved(categoryCount, targetLevel, usedSearch) {
+    // 拖動時間 = 基礎時間(4秒) + (分類數 / 10) × 0.5秒 + 目標層級 × 1秒
+    const baseTime = 4;
+    const scrollTimePerCategory = 0.5;
+    const levelAdjustment = 1;
+
+    const dragTime = baseTime +
+                     (categoryCount / 10) * scrollTimePerCategory +
+                     targetLevel * levelAdjustment;
+
+    // 工具時間 = 2.5秒（使用搜尋）或 3.5秒（瀏覽選單）
+    const toolTime = usedSearch ? 2.5 : 3.5;
+
+    // 節省時間 = max(0, 拖動時間 - 工具時間)
+    const timeSaved = Math.max(0, dragTime - toolTime);
+
+    return {
+      dragTime: Math.round(dragTime * 10) / 10,  // 四捨五入到小數點一位
+      toolTime: Math.round(toolTime * 10) / 10,
+      timeSaved: Math.round(timeSaved * 10) / 10
+    };
+  }
+
+  // ============================================================================
+  // 時間節省追蹤類
+  // ============================================================================
+
+  /**
+   * TimeSavingsTracker - 追蹤並持久化時間節省統計
+   */
+  class TimeSavingsTracker {
+    constructor() {
+      this.storageKey = 'categoryMoveStats';
+      this.stats = this.loadStats();
+    }
+
+    /**
+     * 從 localStorage 載入統計數據
+     */
+    loadStats() {
+      try {
+        const data = localStorage.getItem(this.storageKey);
+        if (data) {
+          return JSON.parse(data);
+        }
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] 載入統計失敗:', error);
+      }
+
+      // 預設值
+      return {
+        totalMoves: 0,
+        totalTimeSaved: 0,
+        lastReset: new Date().toISOString()
+      };
+    }
+
+    /**
+     * 儲存統計數據到 localStorage
+     */
+    saveStats() {
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.stats));
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] 儲存統計失敗:', error);
+      }
+    }
+
+    /**
+     * 記錄單次移動並更新統計
+     *
+     * @param {number} categoryCount - 分類總數
+     * @param {number} targetLevel - 目標層級
+     * @param {boolean} usedSearch - 是否使用搜尋
+     * @returns {{thisMove: number, totalMoves: number, totalTime: number}}
+     */
+    recordMove(categoryCount, targetLevel, usedSearch) {
+      const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
+
+      this.stats.totalMoves += 1;
+      this.stats.totalTimeSaved += result.timeSaved;
+      this.saveStats();
+
+      return {
+        thisMove: result.timeSaved,
+        totalMoves: this.stats.totalMoves,
+        totalTime: this.stats.totalTimeSaved
+      };
+    }
+
+    /**
+     * 取得格式化的統計數據
+     *
+     * @returns {{totalMoves: number, totalSeconds: number, totalMinutes: number, avgPerMove: number, startDate: string}}
+     */
+    getStats() {
+      const totalSeconds = Math.round(this.stats.totalTimeSaved * 10) / 10;
+      const totalMinutes = Math.round((this.stats.totalTimeSaved / 60) * 10) / 10;
+      const avgPerMove = this.stats.totalMoves > 0
+        ? Math.round((this.stats.totalTimeSaved / this.stats.totalMoves) * 10) / 10
+        : 0;
+
+      return {
+        totalMoves: this.stats.totalMoves,
+        totalSeconds,
+        totalMinutes,
+        avgPerMove,
+        startDate: this.stats.lastReset.split('T')[0] // 只取日期部分
+      };
+    }
+
+    /**
+     * 顯示格式化的統計訊息（用於 alert）
+     */
+    showStats() {
+      const stats = this.getStats();
+      const minutes = Math.floor(stats.totalSeconds / 60);
+      const seconds = Math.round(stats.totalSeconds % 60);
+
+      return `━━━━━━━━━━━━━━━━
+📊 時間節省統計
+────────────────
+總移動次數: ${stats.totalMoves} 次
+節省時間: ${minutes} 分 ${seconds} 秒
+平均每次: ${stats.avgPerMove} 秒
+開始日期: ${stats.startDate}
+━━━━━━━━━━━━━━━━`;
+    }
+
+    /**
+     * 重置所有統計數據
+     */
+    resetStats() {
+      this.stats = {
+        totalMoves: 0,
+        totalTimeSaved: 0,
+        lastReset: new Date().toISOString()
+      };
+      this.saveStats();
+    }
+  }
+
   // ============================================================================
   // 分類管理工具類
   // ============================================================================
@@ -106,7 +256,7 @@
     // Issue #10: 定義常數以移除魔法數字
     static SEARCH_DEBOUNCE_MS = 300;           // 搜尋 debounce 延遲（毫秒）
     static BINDING_STALENESS_MS = 30000;       // 綁定陳舊性閾值（30秒）
-    static TOAST_SUCCESS_DURATION_MS = 2000;   // 成功訊息顯示時間
+    static TOAST_SUCCESS_DURATION_MS = 3500;   // 成功訊息顯示時間
     static TOAST_ERROR_DURATION_MS = 3000;     // 錯誤訊息顯示時間
     static TOAST_WARNING_DURATION_MS = 4000;   // 警告訊息顯示時間
     static TOAST_Z_INDEX = 2000;               // 訊息提示 Z-index
@@ -117,16 +267,21 @@
     static BUTTON_MARGIN_RIGHT_PX = '8px';     // 按鈕間距
 
     constructor(scope) {
-      this.scope = scope;
-      this.categories = scope.categories || [];
-      this.posCategories = scope.posCategories || [];
-      this.isMoving = false;
-      this.buttonCategoryMap = new WeakMap();
-      // Issue #5: 儲存 MutationObserver 實例以便清理
-      this.domObserver = null;
-    }
+    this.scope = scope;
+    this.categories = scope.categories || [];
+    this.posCategories = scope.posCategories || [];
+    this.isMoving = false;
+    this.buttonCategoryMap = new WeakMap();
+    // Issue #5: 儲存 MutationObserver 實例以便清理
+    this.domObserver = null;
 
-    /**
+    // 新增：初始化時間追蹤器
+    this.tracker = new TimeSavingsTracker();
+
+    // 新增：搜尋使用標記
+    this._lastMoveUsedSearch = false;
+  }
+
     /**
      * 清理分類名稱以防止 XSS（Issue #4: XSS protection）
      * 移除可能有害的字符如 < > 
@@ -139,6 +294,7 @@
       return name.replace(/[<>]/g, '');
     }
 
+    /**
      * 取得分類的顯示名稱
      */
     getCategoryDisplayName(category) {
@@ -171,6 +327,22 @@
       }
       // 備選：使用 seo_title_translations
       else if (category.seo_title_translations) {
+        if (category.seo_title_translations['zh-hant']) {
+          displayName = category.seo_title_translations['zh-hant'];
+        } else if (category.seo_title_translations['en']) {
+          displayName = category.seo_title_translations['en'];
+        }
+      }
+
+      // 最後的備選：使用 ID
+      if (!displayName) {
+        displayName = category._id || category.id || 'Unknown';
+      }
+
+      // Issue #4: 清理分類名稱以防止 XSS
+      return this.sanitizeCategoryName(displayName);
+    }
+
     /**
      * 通用分類搜尋方法（Issue #9: Extract duplicate search logic）
      * @param {Function} matcher - 匹配函數，返回 true 表示找到
@@ -224,22 +396,6 @@
 
       console.warn(`[Shopline Category Manager] [搜尋${searchType}] 未找到`);
       return null;
-    }
-
-        if (category.seo_title_translations['zh-hant']) {
-          displayName = category.seo_title_translations['zh-hant'];
-        } else if (category.seo_title_translations['en']) {
-          displayName = category.seo_title_translations['en'];
-        }
-      }
-
-      // 最後的備選：使用 ID
-      if (!displayName) {
-        displayName = category._id || category.id || 'Unknown';
-      }
-
-      // Issue #4: 清理分類名稱以防止 XSS
-      return this.sanitizeCategoryName(displayName);
     }
 
     /**
@@ -382,6 +538,8 @@
 
     initialize() {
       console.log('[Shopline Category Manager] 初始化分類管理器');
+      this.injectUI();
+    }
 
     /**
      * 清理資源（Issue #5: MutationObserver cleanup）
@@ -394,8 +552,6 @@
         this.domObserver = null;
         console.log('[Shopline Category Manager] ✅ MutationObserver 已斷開');
       }
-    }
-      this.injectUI();
     }
 
     /**
@@ -520,7 +676,7 @@
         // Issue #3: 驗證 categoryInfo.category 存在再訪問屬性
         if (!categoryInfo?.category) {
           console.error('[Shopline Category Manager] categoryInfo.category is null or undefined');
-          continue;
+          return;
         }
         
         const categoryId = categoryInfo.category._id || categoryInfo.category.id;
@@ -545,7 +701,12 @@
 
         // 🔍 診斷：驗證按鈕所在的節點是否與預期的 categoryInfo 一致
         const buttonNodeName = this.getCategoryDisplayName(categoryInfo.category);
-        const actualScopeItem = angular.element(node).scope()?.item;
+        const ng = getAngular();
+        if (!ng) {
+          console.warn('[Shopline Category Manager] AngularJS 不可用，跳過按鈕注入');
+          return;
+        }
+        const actualScopeItem = ng.element(node).scope()?.item;
         const actualName = this.getCategoryDisplayName(actualScopeItem);
         if (buttonNodeName !== actualName) {
           console.warn('[Shopline Category Manager] ⚠️  按鈕綁定檢查失敗:', {
@@ -565,19 +726,8 @@
             e.preventDefault();
             e.stopPropagation();
 
-            // Issue #2: 檢查綁定是否陳舊（30秒閾值）
+            // 按鈕點擊處理
             const button = e.currentTarget;
-            const bindingCreatedAt = parseInt(button.dataset.createdAt, 10);
-            const bindingAge = Date.now() - bindingCreatedAt;
-
-            // Issue #10: 使用常數而非魔法數字
-            if (bindingAge > CategoryManager.BINDING_STALENESS_MS) {
-              console.warn('[Shopline Category Manager] ⚠️  綁定已過期 (年齡: ' + bindingAge + 'ms)');
-              console.warn('[Shopline Category Manager] 按鈕綁定超過 30 秒，可能在頁面更新時變得陳舊');
-              this.showErrorMessage('綁定已過期，請重新整理頁面重試');
-              return;
-            }
-
             let categoryInfo = null;
             let lookupMethod = 'unknown';
 
@@ -630,7 +780,9 @@
               const treeNode = button.closest('.angular-ui-tree-node');
               if (treeNode) {
                 console.log('[Shopline Category Manager] [Priority 1] Trying scope query (FALLBACK)...');
-                const scope = angular.element(treeNode).scope();
+                const ng = getAngular();
+                if (!ng) return null;
+                const scope = ng.element(treeNode).scope();
 
                 if (scope && scope.item) {
                   const arrayInfo = this.detectCategoryArray(scope.item);
@@ -737,7 +889,9 @@
         }
 
         // ✅ 從樹節點本身的 scope 獲取 item（確保獲取到的是該節點對應的分類）
-        const scope = angular.element(nodeEl).scope();
+        const ng = getAngular();
+        if (!ng) return null;
+        const scope = ng.element(nodeEl).scope();
         console.log('[Shopline Category Manager] [DEBUG] Node scope info:', {
           hasScope: !!scope,
           scopeId: scope?.$id,
@@ -924,7 +1078,9 @@
         if (searchSection) {
           // 清理事件監聽器
           searchSection._searchInput?.removeEventListener?.('input', searchSection._inputHandler);
-          searchSection._resultsList?.innerHTML = '';
+          if (searchSection._resultsList) {
+            searchSection._resultsList.innerHTML = '';
+          }
           
           // 清理對象引用
           delete searchSection._debouncedSearch;
@@ -1417,6 +1573,9 @@
           console.log('[Shopline Category Manager] [Search] Confirm move to:',
             searchSection._selectedCategory.name);
 
+          // 新增：設置搜尋使用標記
+          this._lastMoveUsedSearch = true;
+
           // 執行移動（移動到目標分類作為子項）
           this.moveCategory(currentCategory, targetCategory, categoriesArray, arrayName);
 
@@ -1569,10 +1728,26 @@
         const success = await this.moveCategoryUsingScope(sourceCategory, targetCategory, categoriesArray, arrayName);
 
         if (success) {
-          this.showSuccessMessage('分類移動成功！');
+          // 新增：追蹤時間節省
+          const categoryCount = this.categories.length + this.posCategories.length;
+          const targetLevel = this.getLevel(targetCategory, categoriesArray);
+          const usedSearch = this._lastMoveUsedSearch || false; // 從實例變數讀取
+
+          const result = this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
+          const stats = this.tracker.getStats();
+
+          // 清除標記
+          this._lastMoveUsedSearch = false;
+
+          // 顯示增強型 Toast（三行格式）
+          this.showSuccessMessage(
+            `✅ 移動成功！\n` +
+            `⏱️  本次節省 ${result.thisMove} 秒\n` +
+            `📊 總計: ${stats.totalMoves} 次 / ${stats.totalMinutes} 分鐘`
+          );
           console.log('[Shopline Category Manager] 移動成功');
         } else {
-          this.showErrorMessage('移動失敗，請重試');
+          this.showErrorMessage('移動失敗,請重試');
           console.error('[Shopline Category Manager] 移動失敗');
         }
       } catch (error) {
@@ -2126,6 +2301,8 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         z-index: ${CategoryManager.TOAST_Z_INDEX};
         font-size: 14px;
+        white-space: pre-line;
+        line-height: 1.6;
       `;
       document.body.appendChild(toast);
 
@@ -2186,6 +2363,62 @@
   // ============================================================================
 
   /**
+   * 安全獲取 AngularJS 物件（跨越 Tampermonkey 沙箱）
+   *
+   * 背景：當使用 @grant 權限時，Tampermonkey 會啟用沙箱模式，
+   * 導致 window.angular 無法訪問頁面的 AngularJS 物件。
+   *
+   * @returns {Object|null} AngularJS 物件或 null
+   */
+  function getAngular() {
+    // 優先使用 unsafeWindow（跨越沙箱）
+    if (typeof unsafeWindow !== 'undefined' && unsafeWindow.angular) {
+      return unsafeWindow.angular;
+    }
+
+    // 降級使用 window（無沙箱模式，例如 @grant none）
+    if (typeof window !== 'undefined' && window.angular) {
+      return window.angular;
+    }
+
+    return null;
+  }
+
+  /**
+   * 等待 AngularJS 載入完成
+   *
+   * 用途：確保在初始化前 AngularJS 已經完全載入，
+   * 避免 SPA 路由變更或延遲載入導致的失敗。
+   *
+   * @param {number} timeout - 超時時間（毫秒）
+   * @returns {Promise<Object>} AngularJS 物件
+   */
+  function waitForAngular(timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+
+      const checkAngular = () => {
+        const ng = getAngular();
+        if (ng) {
+          console.log('[Shopline Category Manager] ✓ AngularJS 已就緒');
+          resolve(ng);
+          return;
+        }
+
+        if (Date.now() - startTime > timeout) {
+          reject(new Error('AngularJS 載入超時'));
+          return;
+        }
+
+        // 每 100ms 檢查一次
+        setTimeout(checkAngular, 100);
+      };
+
+      checkAngular();
+    });
+  }
+
+  /**
    * 等待指定的 DOM 元素出現
    */
   function waitForElement(selector, timeout = CategoryManager.WAIT_ELEMENT_TIMEOUT_MS) {
@@ -2225,13 +2458,14 @@
    * 取得 AngularJS scope
    */
   function getAngularScope(element) {
-    if (!window.angular) {
+    const ng = getAngular();
+    if (!ng) {
       console.error('[Shopline Category Manager] AngularJS 不可用');
       return null;
     }
 
     try {
-      const scope = angular.element(element).scope();
+      const scope = ng.element(element).scope();
       if (!scope) {
         console.error('[Shopline Category Manager] 無法取得 scope');
         return null;
@@ -2328,6 +2562,15 @@
     try {
       console.log('[Shopline Category Manager] 正在初始化...');
 
+      // 新增：等待 AngularJS 載入完成
+      try {
+        await waitForAngular(CategoryManager.WAIT_ELEMENT_TIMEOUT_MS);
+      } catch (error) {
+        console.error('[Shopline Category Manager] AngularJS 載入失敗:', error.message);
+        console.error('[Shopline Category Manager] 初始化中止');
+        return;
+      }
+
       // 首先等待實際的樹節點出現（表示分類已加載）
       try {
         await waitForTreeNodes(CategoryManager.TREE_NODES_TIMEOUT_MS);
@@ -2413,6 +2656,21 @@
       // 初始化分類管理工具（會自動檢測兩個陣列）
       const categoryManager = new CategoryManager(scope);
       categoryManager.initialize();
+
+      // 註冊 Tampermonkey 選單項目
+      if (typeof GM_registerMenuCommand !== 'undefined') {
+        GM_registerMenuCommand('📊 查看時間統計', () => {
+          const stats = categoryManager.tracker.showStats();
+          alert(stats);
+        });
+
+        GM_registerMenuCommand('🔄 重置統計', () => {
+          if (confirm('確定要重置時間統計嗎？')) {
+            categoryManager.tracker.resetStats();
+            alert('✅ 統計已重置');
+          }
+        });
+      }
     } catch (error) {
       console.error('[Shopline Category Manager] 初始化錯誤:', error);
       console.error('[Shopline Category Manager] 錯誤堆棧:', error.stack);
