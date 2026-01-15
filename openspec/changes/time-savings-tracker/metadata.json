@@ -3,7 +3,7 @@
   "title": "時間節省追蹤功能",
   "status": "in-progress",
   "created": "2026-01-15T10:30:00Z",
-  "updated": "2026-01-15T10:45:00Z",
+  "updated": "2026-01-15T11:15:00Z",
   "type": "feature",
   "priority": "medium",
   "tags": ["ux", "analytics", "productivity"],
@@ -19,12 +19,18 @@
       "status": "pending"
     }
   ],
-  "estimated_effort": "3 hours",
+  "estimated_effort": "3.5 hours",
   "impact": {
     "users": "all",
     "breaking_changes": false,
     "performance": "negligible"
   },
   "dependencies": [],
-  "related_issues": []
+  "related_issues": [],
+  "technical_notes": [
+    "使用 localStorage 存儲統計數據，無需額外 UserScript 權限",
+    "僅需要 GM_registerMenuCommand 權限用於 Tampermonkey 選單",
+    "usedSearch 偵測採用兩階段實作：初期版本固定為 false，完整版本透過實例變數追蹤",
+    "Toast 多行渲染使用 CSS white-space: pre-line 屬性"
+  ]
 }

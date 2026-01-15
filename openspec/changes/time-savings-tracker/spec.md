@@ -93,9 +93,11 @@ getStats() → {
 **需要的 @grant 權限**：
 ```
 // @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
 ```
+
+**說明**：
+- 統計數據使用 `localStorage` 存儲，不需要 GM_getValue/GM_setValue 權限
+- 僅需要 GM_registerMenuCommand 權限以註冊 Tampermonkey 選單項目
 
 ## 技術規格
 
@@ -133,10 +135,13 @@ if (success) {
   // 新增：追蹤時間節省
   const categoryCount = this.categories.length + this.posCategories.length;
   const targetLevel = this.getLevel(targetCategory, categoriesArray);
-  const usedSearch = false; // TODO: 偵測是否使用搜尋功能
+  const usedSearch = this._lastMoveUsedSearch || false; // 從實例變數讀取
 
   const result = this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
   const stats = this.tracker.getStats();
+
+  // 清除標記
+  this._lastMoveUsedSearch = false;
 
   // 顯示增強型 Toast（三行格式）
   this.showSuccessMessage(
@@ -147,30 +152,99 @@ if (success) {
 }
 ```
 
+**usedSearch 偵測機制**：
+- **Phase 1（初期版本）**：固定為 `false`，提供保守的時間估算（偏向低估節省時間）
+- **Phase 2（完整版本）**：
+  - 在 CategoryManager 加入實例變數 `this._lastMoveUsedSearch = false`
+  - 在搜尋確認按鈕點擊時設置 `this._lastMoveUsedSearch = true`（搜尋區塊的確認按鈕事件處理器）
+  - 在 moveCategory 成功後讀取並重置此標記
+  - 若從下拉選單直接選擇則保持 `false`
+
+**資料來源驗證**：
+- `categoryCount`: 來自 `this.categories` 和 `this.posCategories` 陣列長度總和（在 CategoryManager 建構子中初始化，來自 AngularJS scope）
+- `targetLevel`: 來自現有的 `getLevel(category, categoriesArray)` 方法（回傳 1, 2, 或 3）
+- 兩者在 `moveCategory` 成功時必定可用
+
 **注意事項**：
 - 需要調整 `TOAST_SUCCESS_DURATION_MS` 從 2000 改為 3500 毫秒
-- 訊息使用 `\n` 換行符號分隔三行內容
+- Toast 需要支援多行渲染（見下方 showSuccessMessage 修改）
 - `totalMinutes` 需要四捨五入到小數點一位
 
-#### 2. CategoryManager 建構子
+#### 2. showSuccessMessage 方法修改
+```javascript
+showSuccessMessage(message) {
+  const toast = document.createElement('div');
+
+  // 修改：使用 white-space: pre-line 支援 \n 換行
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #52c41a;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: ${CategoryManager.TOAST_Z_INDEX};
+    font-size: 14px;
+    white-space: pre-line;  // 新增：支援 \n 換行
+    line-height: 1.6;        // 新增：增加行距以提升可讀性
+  `;
+
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.remove();
+  }, CategoryManager.TOAST_SUCCESS_DURATION_MS);
+}
+```
+
+**說明**：
+- 加入 `white-space: pre-line` CSS 屬性以支援 `\n` 換行符號
+- 加入 `line-height: 1.6` 增加行距，提升三行訊息的可讀性
+- 保持使用 `textContent`（非 `innerHTML`）以避免 XSS 風險
+
+#### 3. CategoryManager 建構子
 ```javascript
 constructor(scope) {
   // 現有程式碼...
 
   // 新增：初始化時間追蹤器
   this.tracker = new TimeSavingsTracker();
+
+  // 新增：搜尋使用標記
+  this._lastMoveUsedSearch = false;
 }
 ```
 
-#### 3. UserScript Metadata
+#### 4. 搜尋確認按鈕事件處理
+```javascript
+// 在 createSearchSection 或 attachSearchEventListeners 中
+// 確認按鈕點擊時設置標記
+confirmBtn.addEventListener('click', () => {
+  if (searchSection._selectedCategory) {
+    this._lastMoveUsedSearch = true;  // 設置搜尋使用標記
+    this.moveCategory(currentCategory, searchSection._selectedCategory, categoriesArray, arrayName);
+    this.removeExistingDropdown();
+  }
+});
+```
+
+**說明**：
+- 此修改確保當使用者透過搜尋功能選擇目標分類時，標記會被正確設置
+- 標記會在 moveCategory 成功後自動重置為 `false`
+
+#### 5. UserScript Metadata
 ```diff
 // @match        https://*.shopline.app/admin/*/categories*
 - // @grant        none
 + // @grant        GM_registerMenuCommand
-+ // @grant        GM_getValue
-+ // @grant        GM_setValue
 // ==/UserScript==
 ```
+
+**說明**：
+- 只需要 `GM_registerMenuCommand` 用於 Tampermonkey 選單整合
+- 統計數據使用標準 `localStorage` API，不需要額外權限
 
 ## 使用者體驗
 
@@ -239,7 +313,8 @@ constructor(scope) {
 
 ### 相容性
 - 支援所有已支援的瀏覽器（Chrome, Firefox, Safari, Edge）
-- 向下相容：未啟用 GM_* 權限時功能優雅降級
+- localStorage 可用性檢查：若 localStorage 不可用（如無痕模式），統計功能將靜默失敗，不影響主要移動功能
+- Tampermonkey 選單：若 GM_registerMenuCommand 不可用，選單項目不會註冊，但不影響時間追蹤功能
 
 ### 安全性
 - localStorage 數據僅存於本地，不涉及隱私問題

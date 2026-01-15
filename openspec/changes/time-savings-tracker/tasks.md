@@ -25,13 +25,47 @@ calculateTimeSaved(100, 3, false)
 
 ---
 
-### Task 1.2: 整合到移動成功流程
+### Task 1.2: 修改 showSuccessMessage 支援多行
+- [ ] 在 `showSuccessMessage` 方法加入 `white-space: pre-line` CSS 屬性
+- [ ] 加入 `line-height: 1.6` 提升可讀性
+- [ ] 測試 `\n` 換行符號正確渲染
+
+**檔案位置**: `src/shopline-category-manager.user.js` (Line ~2110，showSuccessMessage 方法)
+
+**修改範例**:
+```javascript
+showSuccessMessage(message) {
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #52c41a;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: ${CategoryManager.TOAST_Z_INDEX};
+    font-size: 14px;
+    white-space: pre-line;  // 新增
+    line-height: 1.6;        // 新增
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.remove(); }, CategoryManager.TOAST_SUCCESS_DURATION_MS);
+}
+```
+
+---
+
+### Task 1.3: 整合到移動成功流程
 - [ ] 調整 `TOAST_SUCCESS_DURATION_MS` 從 2000 改為 3500 毫秒
 - [ ] 在 `moveCategory` 方法中追蹤必要參數
 - [ ] 計算目標層級（`getLevel` 方法）
-- [ ] 偵測是否使用搜尋功能（暫時固定為 false）
+- [ ] 讀取搜尋使用標記（`this._lastMoveUsedSearch`，初期版本固定為 false）
 - [ ] 呼叫 `calculateTimeSaved` 和 `tracker.recordMove()`
 - [ ] 更新成功訊息為增強型 Toast 格式（三行）
+- [ ] 重置搜尋使用標記為 false
 
 **檔案位置**:
 - Constants: Line ~104（`TOAST_SUCCESS_DURATION_MS`）
@@ -47,10 +81,13 @@ if (success) {
   // 計算時間節省
   const categoryCount = this.categories.length + this.posCategories.length;
   const targetLevel = this.getLevel(targetCategory, categoriesArray);
-  const usedSearch = false; // 暫時先固定為 false
+  const usedSearch = this._lastMoveUsedSearch || false; // 從實例變數讀取
 
   const result = this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
   const stats = this.tracker.getStats();
+
+  // 重置標記
+  this._lastMoveUsedSearch = false;
 
   // 顯示增強型 Toast（三行格式）
   this.showSuccessMessage(
@@ -90,19 +127,52 @@ if (success) {
 
 ### Task 2.2: 整合 Tracker 到 CategoryManager
 - [ ] 在 `CategoryManager` 建構子初始化 tracker
-- [ ] 在 `moveCategory` 成功時呼叫 `tracker.recordMove()`
+- [ ] 在建構子初始化 `_lastMoveUsedSearch` 標記
+- [ ] 在 `moveCategory` 成功時呼叫 `tracker.recordMove()`（已在 Task 1.3 完成）
 - [ ] 處理 tracker 錯誤（不應影響主要功能）
 
 **檔案位置**:
 - Constructor: Line ~114
 - moveCategory: Line ~1567
 
+**修改範例**:
+```javascript
+constructor(scope) {
+  // 現有程式碼...
+
+  // 新增：初始化時間追蹤器
+  this.tracker = new TimeSavingsTracker();
+
+  // 新增：搜尋使用標記
+  this._lastMoveUsedSearch = false;
+}
+```
+
 ---
 
-### Task 2.3: 更新 UserScript Metadata
+### Task 2.3: 加入搜尋確認按鈕事件處理
+- [ ] 在搜尋確認按鈕點擊時設置 `this._lastMoveUsedSearch = true`
+- [ ] 測試搜尋功能正確設置標記
+- [ ] 測試非搜尋移動保持標記為 false
+
+**檔案位置**: `src/shopline-category-manager.user.js` (Line ~1422，createSearchSection 或 attachSearchEventListeners)
+
+**修改範例**:
+```javascript
+// 在確認按鈕點擊事件中
+confirmBtn.addEventListener('click', () => {
+  if (searchSection._selectedCategory) {
+    this._lastMoveUsedSearch = true;  // 設置搜尋使用標記
+    this.moveCategory(currentCategory, searchSection._selectedCategory, categoriesArray, arrayName);
+    this.removeExistingDropdown();
+  }
+});
+```
+
+---
+
+### Task 2.4: 更新 UserScript Metadata
 - [ ] 加入 `@grant GM_registerMenuCommand`
-- [ ] 加入 `@grant GM_getValue`
-- [ ] 加入 `@grant GM_setValue`
 - [ ] 同步更新 `.prod.user.js`
 
 **檔案位置**: `src/shopline-category-manager.user.js` (Line 1-11)
@@ -112,13 +182,15 @@ if (success) {
 // @match        https://*.shopline.app/admin/*/categories*
 - // @grant        none
 + // @grant        GM_registerMenuCommand
-+ // @grant        GM_getValue
-+ // @grant        GM_setValue
 ```
+
+**說明**:
+- 只需要 `GM_registerMenuCommand` 用於 Tampermonkey 選單整合
+- 統計數據使用標準 `localStorage` API，不需要 GM_getValue/GM_setValue
 
 ---
 
-### Task 2.4: 實作 Tampermonkey 選單整合
+### Task 2.5: 實作 Tampermonkey 選單整合
 - [ ] 註冊「📊 查看時間統計」選單項目
 - [ ] 註冊「🔄 重置統計」選單項目
 - [ ] 實作選單觸發邏輯
@@ -186,13 +258,15 @@ if (typeof GM_registerMenuCommand !== 'undefined') {
 | 任務 | 預估時間 |
 |------|----------|
 | Task 1.1 | 30 分鐘 |
-| Task 1.2 | 20 分鐘 |
+| Task 1.2 | 10 分鐘 |
+| Task 1.3 | 20 分鐘 |
 | Task 2.1 | 45 分鐘 |
 | Task 2.2 | 15 分鐘 |
-| Task 2.3 | 10 分鐘 |
-| Task 2.4 | 30 分鐘 |
+| Task 2.3 | 15 分鐘 |
+| Task 2.4 | 5 分鐘 |
+| Task 2.5 | 30 分鐘 |
 | Task 3.x | 45 分鐘 |
-| **總計** | **~3 小時** |
+| **總計** | **~3.5 小時** |
 
 ---
 
@@ -200,5 +274,10 @@ if (typeof GM_registerMenuCommand !== 'undefined') {
 
 - Phase 1 可獨立測試和發布
 - Phase 2 依賴 Phase 1 完成
-- 保持向下相容：未授權 GM_* 時功能優雅降級
+- **usedSearch 偵測**：
+  - Phase 1：初期版本固定為 `false`（保守估算）
+  - Phase 2：完整版本透過 `_lastMoveUsedSearch` 實例變數追蹤
+- **存儲機制**：使用標準 `localStorage` API，無需額外 UserScript 權限
+- **權限需求**：僅需要 `GM_registerMenuCommand` 用於 Tampermonkey 選單
+- **相容性**：localStorage 不可用時統計功能靜默失敗，不影響主要移動功能
 - 所有變更需同時更新 `.user.js` 和 `.prod.user.js`
