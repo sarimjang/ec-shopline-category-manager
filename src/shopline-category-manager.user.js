@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.2.1
 // @description  在 Shopline 分類管理頁面添加「移動到」按鈕，支援快速分類重新整理
-// @author       Development Team
+// @author       sarimjang
 // @match        https://admin.shoplineapp.com/admin/*/categories*
 // @match        https://*.shopline.tw/admin/*/categories*
 // @match        https://*.shopline.app/admin/*/categories*
