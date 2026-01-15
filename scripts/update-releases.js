@@ -60,10 +60,8 @@ function createVersionEntry(version, changelogData) {
     version,
     updateURL: `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/.releases/updates.json`,
     downloadURL: `https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/releases/download/v${version}/shopline-category-manager.prod.user.js`,
-    minDownloadURL: `https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/releases/download/v${version}/shopline-category-manager.min.user.js`,
     changelog: changelogData.changelog || `Release v${version}`,
     released: changelogData.date || new Date().toISOString().split('T')[0],
-    minVersion: version,
   };
 }
 

@@ -18,13 +18,11 @@
   ],
   "scripts": {
     "test": "node src/shopline-category-manager.test.js",
-    "build:minify": "node scripts/minify.js",
-    "build:prod": "npm run test && npm run build:minify",
+    "build:prod": "npm run test",
     "version:bump": "node scripts/bump-version.js",
     "release": "npm run build:prod && npm run version:bump"
   },
   "devDependencies": {
-    "terser": "^5.25.0",
     "conventional-changelog-cli": "^4.1.0"
   }
 }
