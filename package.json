@@ -1,0 +1,30 @@
+{
+  "name": "shopline-category-manager",
+  "version": "0.2.1",
+  "description": "Shopline 分類管理快速移動工具 - 在分類管理頁面添加快速移動按鈕和搜尋過濾功能",
+  "author": "Development Team",
+  "license": "MIT",
+  "homepage": "https://github.com/yourname/shopline-category-manager",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourname/shopline-category-manager.git"
+  },
+  "keywords": [
+    "shopline",
+    "greasemonkey",
+    "userscript",
+    "tampermonkey",
+    "category-management"
+  ],
+  "scripts": {
+    "test": "node src/shopline-category-manager.test.js",
+    "build:minify": "node scripts/minify.js",
+    "build:prod": "npm run test && npm run build:minify",
+    "version:bump": "node scripts/bump-version.js",
+    "release": "npm run build:prod && npm run version:bump"
+  },
+  "devDependencies": {
+    "terser": "^5.25.0",
+    "conventional-changelog-cli": "^4.1.0"
+  }
+}

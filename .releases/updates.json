@@ -1,0 +1,14 @@
+{
+  "versions": [
+    {
+      "version": "0.2.1",
+      "updateURL": "https://raw.githubusercontent.com/yourname/shopline-category-manager/main/.releases/downloads/shopline-category-manager.prod.user.js",
+      "downloadURL": "https://github.com/yourname/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js",
+      "minDownloadURL": "https://github.com/yourname/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.min.user.js",
+      "changelog": "初始生產版本：\n- 完成作用域對齊修復\n- 移除魔法數字\n- 新增完整的空值檢查\n- 完善錯誤處理機制",
+      "released": "2026-01-15",
+      "minVersion": "0.2.1"
+    }
+  ],
+  "lastUpdated": "2026-01-15T00:00:00Z"
+}

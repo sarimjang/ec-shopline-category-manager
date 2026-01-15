@@ -680,3 +680,208 @@ Scope 失敗時按鈕被跳過，而非使用 DOM 名稱查找正確分類。
 - **Status**: ✅ 已驗證
 
 - **FirstRecorded**: 2026-01-09
+
+---
+
+## [Trap] AngularJS 數據修改不自動持久化到伺服器 #shopline #angular #api #persistence
+
+- **Context**: 在 Shopline 分類管理器中，使用 AngularJS `$apply()` 更新分類位置，頁面UI 顯示正確，但重新整理頁面後改動消失
+
+- **Issue**: 分類被成功移動（DOM 和 scope 都更新），但重新整理頁面後回復原來位置
+  ```javascript
+  // ❌ 不完整：只修改客戶端狀態
+  this.moveCategoryUsingScope(sourceCategory, targetCategory);
+  scope.$apply();  // UI 更新，但伺服器不知道！
+  // 頁面重新整理 → 伺服器重新加載舊數據 → 改動遺失
+  ```
+
+- **Root Cause**:
+  - AngularJS `$apply()` 只觸發本地 **UI 更新**（重新渲染 DOM）
+  - 並**不會自動調用伺服器 API** 來持久化數據
+  - 這是單頁應用（SPA）的常見陷阱：**客戶端狀態改變 ≠ 伺服器狀態改變**
+
+- **Why It's Counterintuitive**:
+  - 開發者期望：「修改了數據 → 呼叫 $apply() → 數據就保存」
+  - 實際情況：「修改了數據 → 呼叫 $apply() → UI 更新」，但伺服器仍有舊數據
+  - 兩個獨立的系統：客戶端 scope 和伺服器數據庫
+
+- **Solution**: 在 UI 更新後，立即呼叫伺服器 API 持久化
+  ```javascript
+  // ✅ 完整流程
+  async moveCategoryUsingScope(sourceCategory, targetCategory) {
+    // Step 1-6: 修改客戶端 scope（如原本的邏輯）
+    this.moveInScope(sourceCategory, targetCategory);
+    scope.$apply();
+
+    // Step 7 (新增): API 調用持久化
+    const success = await this.saveCategoryOrderingToServer(
+      sourceCategory,
+      targetCategory,
+      oldParentId
+    );
+    
+    if (!success) {
+      console.error('❌ 伺服器保存失敗！本地修改將在重新整理後遺失');
+      // 考慮回滾或提示用戶
+    }
+  }
+  ```
+
+- **Lesson for Future**:
+  - 任何 SPA 中的「持久化」操作都需要雙層次：
+    1. **本地層** - 修改 scope/state，更新 UI（快速反饋）
+    2. **遠端層** - 調用伺服器 API，持久化到數據庫（長期保存）
+  - 沒有遠端層，修改只是「暫時視覺效果」
+
+- **Status**: ✅ 已驗證（Shopline API 調用成功）
+
+- **FirstRecorded**: 2026-01-14
+
+---
+
+## [Pattern] CSRF Token 動態提取的多重降級策略 #csrf #security #web-api
+
+- **Context**: 調用受 CSRF 保護的伺服器 API 時，需要從頁面中動態提取 CSRF token
+
+- **Pattern**: 嘗試多個提取方式，按優先級降級
+  ```javascript
+  async extractCSRFToken() {
+    // 方法 1️⃣ (推薦): 從 meta tag 提取（標準做法）
+    let csrfToken = document.querySelector('meta[name="csrf-token"]')
+      ?.getAttribute('content');
+    if (csrfToken) {
+      console.log('[CSRF] ✅ 從 meta tag 獲取成功');
+      return csrfToken;
+    }
+
+    // 方法 2️⃣ (降級): 從 Angular 依賴注入獲取
+    try {
+      const httpDefaults = angular.element(document.body)
+        .injector()
+        .get('$http')
+        .defaults.headers.common['X-CSRF-Token'];
+      if (httpDefaults) {
+        console.log('[CSRF] ✅ 從 Angular $http 獲取成功');
+        return httpDefaults;
+      }
+    } catch (e) {
+      console.warn('[CSRF] ⚠️ Angular 注入失敗，嘗試下一方法');
+    }
+
+    // 方法 3️⃣ (最後降級): 從 cookie 提取
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name.toLowerCase().includes('csrf') || 
+          name.toLowerCase().includes('token')) {
+        console.log('[CSRF] ✅ 從 cookie 獲取成功');
+        return decodeURIComponent(value);
+      }
+    }
+
+    // 全部失敗 → 警告但繼續（伺服器可能寬鬆）
+    console.warn('[CSRF] ⚠️ 無法獲取 CSRF token，API 調用可能失敗');
+    return '';  // 傳空字串，讓伺服器決定是否拒絕
+  }
+  ```
+
+- **Why Multiple Methods**:
+  - 不同框架/伺服器框架儲存 token 的位置不同
+  - Meta tag 是 Rails/Django 標準，但 Angular SPA 可能在 $http header 中
+  - Cookie 是通用備選，老舊框架可能用這種方式
+  - 多層降級提高成功率
+
+- **Best Practices**:
+  1. **優先序** = 標準做法 > 框架特定 > 通用機制
+  2. **偵錯輸出** = 記錄每個步驟的成功/失敗
+  3. **優雅降級** = 即使 token 為空也繼續，讓伺服器決定
+  4. **不要硬編碼** = Token 總是動態，不要假設固定值
+
+- **When to Use**:
+  - 任何 POST/PUT/DELETE 請求都應該包含 CSRF token
+  - 如果伺服器啟用了 CSRF 保護（大多數都有）
+
+- **Status**: ✅ 已驗證（Shopline 使用 meta tag + X-CSRF-Token header）
+
+- **FirstRecorded**: 2026-01-14
+
+---
+
+## [Shortcut] 從 Browser DevTools 的 cURL 反向解析 API 格式 #api #debugging #reverse-engineering
+
+- **Technique**: 當 API 文檔不存在時，使用瀏覽器的「Copy as cURL」功能反向解析 API
+
+- **Step-by-Step**:
+  1. **在 Browser DevTools Network 標籤中找到目標請求**
+     - F12 打開開發者工具
+     - 執行用戶交互（如點擊「保存」按鈕）
+     - 在 Network 標籤找到相關的 PUT/POST 請求
+
+  2. **複製 cURL 命令**
+     - 右鍵點擊請求 → Copy as cURL
+     - 貼到記事本分析
+
+  3. **從 cURL 解析 API 細節**
+     ```bash
+     curl 'https://admin.shoplineapp.com/api/admin/v1/5efc20a1905eb10026d50247/categories/6967724c4c6aa90012259431/ordering' \
+       -X 'PUT' \
+       -H 'accept: application/json' \
+       -H 'content-type: application/json;charset=UTF-8' \
+       -H 'X-CSRF-Token: <token>' \
+       --data-raw '{\"parent\":null,\"ancestor\":\"696773a71ccc9b4e962ed2c7\",\"descendant\":null}'
+     ```
+
+     **解析結果**:
+     - **URL 模式**: `/api/admin/v1/{shopId}/categories/{categoryId}/ordering`
+     - **HTTP 方法**: PUT
+     - **必需 Header**: `X-CSRF-Token` （CSRF 保護）
+     - **請求內容**:
+       ```json
+       {
+         "parent": null,           // 新的父分類 ID（null = 根層級）
+         "ancestor": "696773...",  // 舊的父分類 ID
+         "descendant": null        // 暫時不清楚用途
+       }
+       ```
+
+  4. **轉換為 JavaScript fetch**
+     ```javascript
+     const response = await fetch(
+       `https://admin.shoplineapp.com/api/admin/v1/${shopId}/categories/${categoryId}/ordering`,
+       {
+         method: 'PUT',
+         headers: {
+           'Content-Type': 'application/json;charset=UTF-8',
+           'X-CSRF-Token': csrfToken,
+           'X-Requested-With': 'XMLHttpRequest'  // 多數 API 期望
+         },
+         body: JSON.stringify({
+           parent: newParentId,
+           ancestor: oldParentId,
+           descendant: null
+         }),
+         credentials: 'include'  // 重要：保持 cookie/驗證
+       }
+     );
+     ```
+
+- **Common Pitfalls to Watch For**:
+  - ⚠️ **HTTP 方法**: 視覺上修改數據但實際是 GET？檢查 cURL 中的 `-X` 參數
+  - ⚠️ **content-type**: 誤用 `form-urlencoded` 而非 `json`
+  - ⚠️ **CSRF Token 位置**: 不是所有框架都用 meta tag（可能在 header、cookie、body）
+  - ⚠️ **認證方式**: Bearer token？OAuth？Basic auth？檢查 Authorization header
+  - ⚠️ **Payload 結構**: 某些字段可能是可選的，嘗試刪除字段看是否仍能工作
+
+- **Advantages**:
+  - **快速** - 5 分鐘內了解 API 結構
+  - **準確** - 使用真實請求而非推測
+  - **可驗證** - 可直接在 curl 中測試，再移植到程式
+
+- **Limitations**:
+  - ❌ 無法推斷非必需字段的用途
+  - ❌ 無法看到相應的結構（必須自己嘗試）
+  - ❌ 無法了解時間依賴（如 token 過期）
+
+- **Status**: ✅ 已驗證（成功反向解析 Shopline API）
+
+- **FirstRecorded**: 2026-01-14
