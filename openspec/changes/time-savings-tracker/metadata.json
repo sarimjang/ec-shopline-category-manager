@@ -1,0 +1,30 @@
+{
+  "id": "time-savings-tracker",
+  "title": "時間節省追蹤功能",
+  "status": "in-progress",
+  "created": "2026-01-15T10:30:00Z",
+  "updated": "2026-01-15T10:30:00Z",
+  "type": "feature",
+  "priority": "medium",
+  "tags": ["ux", "analytics", "productivity"],
+  "phases": [
+    {
+      "name": "Phase 1",
+      "description": "靜態估算模型 - 即時時間節省計算",
+      "status": "pending"
+    },
+    {
+      "name": "Phase 2",
+      "description": "累積統計追蹤 - 長期使用數據",
+      "status": "pending"
+    }
+  ],
+  "estimated_effort": "3 hours",
+  "impact": {
+    "users": "all",
+    "breaking_changes": false,
+    "performance": "negligible"
+  },
+  "dependencies": [],
+  "related_issues": []
+}
