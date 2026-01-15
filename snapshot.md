@@ -67,27 +67,28 @@
 │   │   ├── PROJECT_OVERVIEW.md
 │   │   ├── PROJECT_SUMMARY.md
 │   │   └── QUICK_REFERENCE.md
+│   ├── README.html
 │   └── README.md
 ├── openspec
 │   ├── changes
-│   │   ├── add-category-quick-move
-│   │   │   ├── specs
-│   │   │   │   └── category-manager
-│   │   │   │       └── spec.md
-│   │   │   ├── proposal.md
-│   │   │   └── tasks.md
-│   │   ├── add-search-filter
-│   │   │   ├── proposal.md
-│   │   │   └── tasks.md
-│   │   ├── archive
-│   │   └── fix-scope-alignment
-│   │       ├── COMPLETION_REPORT.md
-│   │       ├── DEBUG_LOG.md
-│   │       ├── IMPLEMENTATION_GUIDE.md
-│   │       ├── IMPLEMENTATION_GUIDE_CORRECTED.md
-│   │       ├── proposal.md
-│   │       ├── README.md
-│   │       └── tasks.md
+│   │   └── archive
+│   │       ├── add-category-quick-move
+│   │       │   ├── specs
+│   │       │   │   └── category-manager
+│   │       │   │       └── spec.md
+│   │       │   ├── proposal.md
+│   │       │   └── tasks.md
+│   │       ├── add-search-filter
+│   │       │   ├── proposal.md
+│   │       │   └── tasks.md
+│   │       └── fix-scope-alignment
+│   │           ├── COMPLETION_REPORT.md
+│   │           ├── DEBUG_LOG.md
+│   │           ├── IMPLEMENTATION_GUIDE.md
+│   │           ├── IMPLEMENTATION_GUIDE_CORRECTED.md
+│   │           ├── proposal.md
+│   │           ├── README.md
+│   │           └── tasks.md
 │   ├── specs
 │   ├── AGENTS.md
 │   └── project.md
@@ -99,12 +100,15 @@
 │   ├── .DS_Store
 │   ├── 0108-02.log
 │   ├── README.md
+│   ├── shopline-category-manager.prod.user.js
 │   ├── shopline-category-manager.test.js
 │   └── shopline-category-manager.user.js
+├── .DS_Store
 ├── AGENTS.md
 ├── CLAUDE.md
 ├── lesson-learn.md
 ├── requirement.PRD
+├── snapshot.md
 ├── snapshot.py
 ├── technical_framework.md
 ├── technical_framework_zh_TW.md
@@ -114,10 +118,144 @@
 ## 函式清單 / 檔案摘要
 
 ### 語言分佈
-- **JavaScript/TypeScript**: 3 檔案，170 函式
+- **JavaScript/TypeScript**: 4 檔案，300 函式
 - **Python**: 1 檔案，105 函式
 
 ### JavaScript/TypeScript
+
+#### src/shopline-category-manager.prod.user.js
+- purpose: ==UserScript== @name         Shopline 分類管理 - 快速移動 (Production) @namespace    http://tampermonkey.net/ @version      0.2.1-prod @description  在 Shopline 分類管理頁面添加「移動到」按鈕，支援快速分類重新整理 @author       Develop...
+##### 函式
+- **while(element.firstChild)**
+- **if(!category || !category.children)**
+- **for(let child of category.children)**
+- **for(const category of categories)**
+- **if(category === targetCategory)**
+- **if(level !== -1)**
+- **getCategoryDisplayName(category)**
+- **if(category.name)**
+- **if(category.name_translations)**
+- **if(category.name_translations['zh-hant'])**
+- **if(category.name_translations['en'])**
+- **if(firstLang && category.name_translations[firstLang])**
+- **if(category.seo_title_translations)**
+- **if(category.seo_title_translations['zh-hant'])**
+- **if(category.seo_title_translations['en'])**
+- **findCategoryByName(categoryName)**
+- **if(!categoryName)**
+- **for(const item of arr)**
+- **if(itemName === categoryName)**
+- **if(this.posCategories && this.posCategories.length > 0)**
+- **getLevel1Categories(excludeCategory = null, filterArrayName = null)**
+- **for(const cat of this.categories)**
+- **for(const cat of this.posCategories)**
+- **filterCategoriesByKeyword(keyword, categories)**
+- **debounce(func, wait)**
+- **findCategoryById(categoryId)**
+- **if(!categoryId)**
+- **if(item._id === categoryId || item.id === categoryId)**
+- **initialize()**
+- **injectUI()**
+- **if(!treeContainer)**
+- **attachButtonsToCategories()**
+- **if(!buttonArea)**
+- **if(!categoryInfo && domCategoryName)**
+- **if(categoryInfo && domCategoryName)**
+- **if(scopeCategoryName !== domCategoryName)**
+- **if(correctedInfo)**
+- **if(!categoryInfo)**
+- **if(categoryId)**
+- **if(categoryInfo.category?.key)**
+- **if(categoryId && arrayName)**
+- **if(treeNode)**
+- **if(scope && scope.item)**
+- **if(boundCategoryInfo)**
+- **if(!categoryInfo || !categoryInfo.category)**
+- **getCategoryFromElement(element)**
+- **if(!nodeEl)**
+- **if(domCategoryName && itemName !== domCategoryName)**
+- **if(!this.scopeMisalignmentLog)**
+- **detectCategoryArray(category)**
+- **if(this.posCategories.length > 0)**
+- **if(inPosCategories)**
+- **if(this.categories.length > 0)**
+- **if(inCategories)**
+- **findCategoryInArray(category, categoriesArray)**
+- **for(const cat of categories)**
+- **if(cat === category)**
+- **showMoveDropdown(category, button, categoriesArray = null, arrayName = 'categories')**
+- **if(!categoriesArray)**
+- **removeExistingDropdown()**
+- **if(existingDropdown)**
+- **if(searchSection && searchSection._debouncedSearch && searchSection._debouncedSearch.cancel)**
+- **createDropdownContainer()**
+- **populateDropdownOptions(dropdown, options, currentCategory, categoriesArray = null, arrayName = 'categories')**
+- **createDropdownItem(option, currentCategory, categoriesArray = null, arrayName = 'categories')**
+- **if(option.indent > 0)**
+- **if(option.indent === 1)**
+- **attachItemEventListeners(item, option, currentCategory, categoriesArray = null, arrayName = 'categories')**
+- **if(!option.disabled)**
+- **attachDropdownEventListeners(dropdown, button)**
+- **if(e.key === 'Escape')**
+- **positionDropdown(dropdown, button)**
+- **if(left + dropdownWidth > window.innerWidth)**
+- **if(top + dropdownHeight > window.innerHeight)**
+- **createSearchSection(currentCategory, categoriesArray, arrayName)**
+- **createSearchInput()**
+- **createSearchResultsList()**
+- **createConfirmButton()**
+- **updateConfirmButtonState(btn, enabled)**
+- **if(enabled)**
+- **renderSearchResults(resultsList, categories, searchSection)**
+- **if(categories.length === 0)**
+- **if(searchSection._selectedCategory !== item)**
+- **handleSearchItemSelect(item, row, radio, searchSection)**
+- **if(r._radio)**
+- **if(searchSection._selectedCategory === item)**
+- **attachSearchEventListeners(searchSection)**
+- **getValidMoveTargets(category, categoriesArray = null)**
+- **addTargetCategoriesRecursively(categories, currentCategory, options, depth)**
+- **moveCategory(sourceCategory, targetCategory, categoriesArray = null, arrayName = 'categories')**
+- **if(this.isMoving)**
+- **if(success)**
+- **moveCategoryUsingScope(sourceCategory, targetCategory, categoriesArray = null, arrayName = 'categories')**
+- **if(targetCategory)**
+- **if(targetLevel === 3)**
+- **if(!sourceParent)**
+- **if(sourceIndex === -1)**
+- **if(!targetCategory.children)**
+- **if(this.scope.$apply)**
+- **if(sourceStillInOldLocation)**
+- **if(!sourceInNewLocation)**
+- **rollbackMove(sourceCategory, targetCategory, backupData)**
+- **if(targetCategory.children)**
+- **if(previousChildren === undefined && targetCategory.children.length === 0)**
+- **findCategoryParent(category, categoriesArray = null)**
+- **if(result)**
+- **showSuccessMessage(message)**
+- **showErrorMessage(message)**
+- **getLevel(category, categoriesArray = null)**
+- **getAllDescendants(category)**
+- **if(element)**
+- **if(!window.angular)**
+- **if(!scope)**
+- **if(nodes.length > 0)**
+- **if(containerScope)**
+- **if(document.readyState === 'loading')**
+- **function()**
+- **log(...args)**
+- **warn(...args)**
+- **error(...args)**
+- **debug(...args)**
+- **clearElement(element)**
+- **isDescendant(potentialAncestor, potentialDescendant)**
+- **getCategoryLevel(categories, targetCategory, currentLevel = 1)**
+- **getCategoryDescendants(category)**
+- **waitForElement(selector, timeout = 10000)**
+- **getAngularScope(element)**
+- **findCategoriesScope(element)**
+- **waitForTreeNodes(timeout = 15000)**
+- **init()**
 
 #### src/shopline-category-manager.test.js
 - purpose: Shopline Category Manager - 單元測試
@@ -376,7 +514,6 @@ Usage:   python snapshot.py [--root...
 - **extract_prev_comment(lines: List[str], idx: int, lang: str)**
 - **parse_vue_script(content: str)** - Extract <script> ... </script> blocks (including <script setup>)
 - **parse_js_family(content: str, filename: str)** - Parse JS/TS/JSX/TSX heuristically with type extraction.
-- **enrich_with_types(entry: Dict[str, str], line_idx: int, params_raw: str, return_type_raw: str = "")** - Enrich a function entry with type information from JSDoc and TS annotations.
 - **parse_python(content: str, filename: str)** - Heuristic Python def/class parsing with type extraction.
 - **parse_swift_params(params_str: str)** - Parse Swift function parameters with types.
 - **build_swift_signature(name: str, params: List[Dict[str, str]], return_type: str, throws: bool = False)** - Build Swift function signature string.
@@ -412,9 +549,9 @@ _（未找到相依檔案）_
 
 ## 摘要
 
-- 檔案數：4
-- 函式數：275
+- 檔案數：5
+- 函式數：405
 - 依賴數：0
 - 語言/副檔名分佈：
-  - .js: 3
+  - .js: 4
   - .py: 1
