@@ -1,7 +1,7 @@
 {
   "name": "shopline-category-manager",
-  "version": "0.2.1",
-  "description": "Shopline 分類管理快速移動工具 - 在分類管理頁面添加快速移動按鈕和搜尋過濾功能",
+  "version": "1.0.0",
+  "description": "Chrome Extension for bulk Shopline category management",
   "author": "Development Team",
   "license": "MIT",
   "homepage": "https://github.com/sarimjang/shopline-category-manager",
@@ -11,12 +11,12 @@
   },
   "keywords": [
     "shopline",
-    "greasemonkey",
-    "userscript",
-    "tampermonkey",
-    "category-management"
+    "chrome-extension",
+    "category-management",
+    "bulk-operations"
   ],
   "scripts": {
+    "build": "echo 'Build steps TBD for Phase 2'",
     "test": "node src/shopline-category-manager.test.js",
     "build:prod": "npm run test",
     "version:bump": "node scripts/bump-version.js",
