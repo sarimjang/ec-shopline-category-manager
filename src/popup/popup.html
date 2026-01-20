@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopline Category Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Shopline Category Manager</h1>
+
+    <div id="status" class="status">
+      <p>Loading...</p>
+    </div>
+
+    <div class="controls">
+      <button id="export-btn" class="btn btn-primary">
+        Export Categories
+      </button>
+      <button id="import-btn" class="btn btn-secondary">
+        Import Categories
+      </button>
+    </div>
+
+    <div id="settings" class="settings">
+      <h3>Settings</h3>
+      <label>
+        <input type="checkbox" id="auto-save" />
+        Auto-save to storage
+      </label>
+    </div>
+  </div>
+
+  <script src="../shared/constants.js"></script>
+  <script src="../shared/logger.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
