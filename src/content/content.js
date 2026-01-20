@@ -1,45 +1,77 @@
 /**
  * Content Script - Bridge between Extension context and Page context
- * Injects the injected.js script to access window.angular
+ * Runs in isolated world, communicates with injected script in main world
+ *
+ * 架構:
+ * 1. Content script (isolated world) ← can access chrome.runtime
+ * 2. Injected script (main world) ← can access window.angular
+ * 3. Communication via CustomEvent
  */
 
 (function() {
   'use strict';
 
-  // Inject the injected script to access AngularJS and page context
+  // 1. 偵測是否在 Shopline 類別管理頁面
+  function isShoplineCategoryPage() {
+    const url = window.location.href;
+    const isCorrectPath = url.includes('/admin/') && url.includes('/categories');
+
+    if (!isCorrectPath) {
+      console.log('[Content] Not a Shopline category page, skipping initialization');
+      return false;
+    }
+
+    console.log(`[Content] Loaded on Shopline category page: ${url}`);
+    return true;
+  }
+
+  // 只在正確的頁面上執行
+  if (!isShoplineCategoryPage()) {
+    return;
+  }
+
+  // 2. 將 injected.js 注入到 MAIN world
   const script = document.createElement('script');
   script.src = chrome.runtime.getURL('content/injected.js');
   script.onload = function() {
     this.remove();
   };
+  script.onerror = function() {
+    console.error('[Content] Failed to load injected script');
+    this.remove();
+  };
   (document.head || document.documentElement).appendChild(script);
 
-  // Listen for messages from injected script
-  window.addEventListener('message', function(event) {
-    // Only accept messages from the page itself
-    if (event.source !== window) return;
+  // 3. 監聽來自 injected script 的類別操作事件
+  window.addEventListener('categoryActionMessage', function(event) {
+    const { type, data } = event.detail;
+    console.log(`[Content] Received categoryActionMessage: type=${type}`, data);
 
-    if (event.data.type && event.data.type === 'FROM_PAGE') {
-      // Forward messages from injected script to background service worker
-      chrome.runtime.sendMessage(event.data.payload, function(_response) {
-        if (chrome.runtime.lastError) {
-          console.error('Extension error:', chrome.runtime.lastError);
-        }
-      });
+    // 處理類別操作事件（移動、統計更新等）
+    // 如果需要，轉發給 background service worker
+    if (type === 'CATEGORY_MOVED') {
+      // 可以轉發給 background worker 作進一步處理
+    } else if (type === 'STATS_UPDATED') {
+      // 更新統計資訊
     }
   });
 
-  // Listen for messages from background service worker
+  // 4. 監聽來自 background script 的消息
   chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
-    // Forward messages to the page via injected script
-    if (request.type === 'TO_PAGE') {
-      window.postMessage({
-        type: 'FROM_EXTENSION',
-        payload: request.payload
-      }, '*');
+    console.log('[Content] Received message from background:', request.type);
+
+    if (request.type === 'GET_PAGE_STATE') {
+      // 返回當前的類別資料（如果有的話）
+      const pageState = {
+        url: window.location.href,
+        hasAngular: !!(window.angular), // 這個檢查只能在 injected script 中做
+        timestamp: new Date().toISOString()
+      };
+      sendResponse(pageState);
     }
-    sendResponse({ received: true });
+
+    return true; // 保持 channel 開放進行異步回應
   });
 
-  console.log('Shopline Category Manager content script loaded');
+  console.log('[Content] Shopline Category Manager content script loaded');
 })();
