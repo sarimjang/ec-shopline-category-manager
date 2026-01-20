@@ -1,12 +1,13 @@
 /**
- * Popup UI Script - Handles user interactions in the extension popup
- * Communicates with background service worker
+ * Popup UI Script - Displays category move statistics and provides controls
+ * Updates in real-time from content script events
  */
 
 (function() {
   'use strict';
 
   const logger = window.ShoplineLogger || console;
+  let storageManager = null;
 
   // Initialize popup on load
   document.addEventListener('DOMContentLoaded', function() {
@@ -16,78 +17,103 @@
   /**
    * Initialize popup UI
    */
-  function initializePopup() {
-    logger.log('Popup initialized');
+  async function initializePopup() {
+    logger.log('[Popup] Initializing');
 
-    // Load settings from storage
-    loadSettings();
+    // Create storage manager instance
+    storageManager = new window.StorageManager();
+
+    // Load stats on popup open
+    await loadStats();
 
     // Attach event listeners
-    document.getElementById('export-btn').addEventListener('click', handleExport);
-    document.getElementById('import-btn').addEventListener('click', handleImport);
-    document.getElementById('auto-save').addEventListener('change', handleSettingsChange);
+    document.getElementById('resetBtn').addEventListener('click', handleReset);
+    document.getElementById('settingsBtn').addEventListener('click', handleSettings);
 
-    // Update status
-    updateStatus('Ready');
-  }
-
-  /**
-   * Load settings from chrome.storage.local
-   */
-  function loadSettings() {
-    chrome.storage.local.get(['autoSave'], function(result) {
-      const autoSave = result.autoSave || false;
-      document.getElementById('auto-save').checked = autoSave;
+    // Listen for stat updates from content script
+    window.addEventListener('categoryStats', (e) => {
+      logger.log('[Popup] Received categoryStats event:', e.detail);
+      updateUI(e.detail.stats);
     });
+
+    logger.log('[Popup] Initialized successfully');
   }
 
   /**
-   * Handle export button click
+   * Load stats from storage and update UI
    */
-  function handleExport() {
-    logger.log('Export clicked');
-    updateStatus('Exporting categories...');
-
-    // Placeholder - actual implementation in Phase 01-02
-    setTimeout(() => {
-      updateStatus('Export complete');
-    }, 1000);
+  async function loadStats() {
+    try {
+      const stats = await storageManager.getStats();
+      logger.log('[Popup] Stats loaded:', stats);
+      updateUI(stats);
+    } catch (error) {
+      logger.error('[Popup] Error loading stats:', error);
+    }
   }
 
   /**
-   * Handle import button click
+   * Update UI with stats data
+   * @param {Object} stats - Statistics object with totalMoves, totalTimeSaved, lastReset
    */
-  function handleImport() {
-    logger.log('Import clicked');
-    updateStatus('Importing categories...');
+  function updateUI(stats) {
+    const { totalMoves = 0, totalTimeSaved = 0 } = stats;
 
-    // Placeholder - actual implementation in Phase 01-02
-    setTimeout(() => {
-      updateStatus('Import complete');
-    }, 1000);
+    // Update total moves
+    document.getElementById('totalMoves').textContent = totalMoves;
+
+    // Format time saved: convert seconds to min:sec
+    const minutes = Math.floor(totalTimeSaved / 60);
+    const seconds = Math.floor(totalTimeSaved % 60);
+    document.getElementById('timeSaved').textContent =
+      `${minutes} min ${seconds} sec`;
+
+    // Calculate and update average time per move
+    const avgSeconds = totalMoves > 0
+      ? Math.floor(totalTimeSaved / totalMoves)
+      : 0;
+    document.getElementById('avgTime').textContent = `${avgSeconds} sec`;
+
+    logger.log('[Popup] UI updated with stats:', { totalMoves, totalTimeSaved, avgSeconds });
   }
 
   /**
-   * Handle settings change
+   * Handle reset button click
    */
-  function handleSettingsChange(event) {
-    const autoSave = event.target.checked;
-    chrome.storage.local.set({ autoSave: autoSave }, function() {
-      logger.log('Setting saved: autoSave =', autoSave);
-    });
-  }
-
-  /**
-   * Update status message
-   */
-  function updateStatus(message) {
-    const statusDiv = document.getElementById('status');
-    if (statusDiv) {
-      const paragraph = statusDiv.querySelector('p') || document.createElement('p');
-      paragraph.textContent = message;
-      if (!statusDiv.querySelector('p')) {
-        statusDiv.appendChild(paragraph);
+  async function handleReset() {
+    if (confirm('Reset all statistics?')) {
+      try {
+        const stats = await storageManager.resetStats();
+        updateUI(stats);
+        showStatus('Stats reset', 'success');
+        logger.log('[Popup] Statistics reset');
+      } catch (error) {
+        logger.error('[Popup] Error resetting stats:', error);
+        showStatus('Error resetting stats', 'error');
       }
     }
+  }
+
+  /**
+   * Handle settings button click
+   */
+  function handleSettings() {
+    showStatus('Settings coming soon', 'error');
+  }
+
+  /**
+   * Show temporary status message
+   * @param {string} message - Status message
+   * @param {string} type - Message type: 'success' or 'error'
+   */
+  function showStatus(message, type = 'success') {
+    const el = document.getElementById('status');
+    el.textContent = message;
+    el.className = `status ${type}`;
+    setTimeout(() => {
+      el.textContent = '';
+      el.className = 'status';
+    }, 2000);
+    logger.log(`[Popup] Status shown: ${message} (${type})`);
   }
 })();

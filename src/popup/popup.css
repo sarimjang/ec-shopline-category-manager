@@ -1,4 +1,4 @@
-/* Popup UI Styles */
+/* Popup UI Styles - Statistics Display */
 
 * {
   margin: 0;
@@ -7,107 +7,105 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  font-size: 14px;
-  color: #333;
-  background-color: #f5f5f5;
-  min-width: 400px;
+  width: 300px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f9fafb;
+  color: #111827;
   min-height: 300px;
 }
 
 .container {
   padding: 16px;
-  max-width: 500px;
 }
 
 h1 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: #222;
+  font-size: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+  color: #111827;
 }
 
-h3 {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #444;
-}
-
-.status {
-  background-color: #e8f4f8;
-  border-left: 3px solid #0099cc;
+.stats {
+  background: white;
+  border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
-  border-radius: 4px;
+  border: 1px solid #e5e7eb;
 }
 
-.status p {
-  margin: 0;
-  color: #0066aa;
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-weight: 500;
+  color: #6b7280;
   font-size: 13px;
 }
 
-.controls {
-  display: flex;
+.value {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .btn {
-  flex: 1;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: 6px;
+  font-size: 12px;
   cursor: pointer;
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
-.btn-primary {
-  background-color: #0099cc;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #0077aa;
-}
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
 .btn-secondary {
-  background-color: #e0e0e0;
-  color: #333;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover {
-  background-color: #d0d0d0;
+  background: #f3f4f6;
 }
 
 .btn-secondary:active {
   transform: scale(0.98);
 }
 
-.settings {
-  border-top: 1px solid #ddd;
-  padding-top: 12px;
-  margin-top: 12px;
+.status {
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  text-align: center;
+  min-height: 20px;
+  display: none;
 }
 
-.settings label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 13px;
-  color: #555;
+.status:not(:empty) {
+  display: block;
 }
 
-.settings label input[type="checkbox"] {
-  margin-right: 8px;
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
+.status.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status.error {
+  background: #fee2e2;
+  color: #991b1b;
 }

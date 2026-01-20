@@ -3,37 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shopline Category Manager</title>
+  <title>Shopline Categories</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
-    <h1>Shopline Category Manager</h1>
+    <h1>Shopline Categories</h1>
 
-    <div id="status" class="status">
-      <p>Loading...</p>
+    <div class="stats">
+      <div class="stat-item">
+        <span class="label">Moves Today:</span>
+        <span class="value" id="totalMoves">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">Time Saved:</span>
+        <span class="value" id="timeSaved">0 min 0 sec</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">Avg per Move:</span>
+        <span class="value" id="avgTime">0 sec</span>
+      </div>
     </div>
 
-    <div class="controls">
-      <button id="export-btn" class="btn btn-primary">
-        Export Categories
-      </button>
-      <button id="import-btn" class="btn btn-secondary">
-        Import Categories
-      </button>
+    <div class="buttons">
+      <button id="resetBtn" class="btn btn-secondary">Reset Stats</button>
+      <button id="settingsBtn" class="btn btn-secondary">Settings</button>
     </div>
 
-    <div id="settings" class="settings">
-      <h3>Settings</h3>
-      <label>
-        <input type="checkbox" id="auto-save" />
-        Auto-save to storage
-      </label>
-    </div>
+    <div id="status" class="status"></div>
   </div>
 
   <script src="../shared/constants.js"></script>
   <script src="../shared/logger.js"></script>
+  <script src="../shared/storage.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
