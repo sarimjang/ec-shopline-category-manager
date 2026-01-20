@@ -13,7 +13,7 @@
   }
 
   // Initialize angular scope access
-  const initializationComplete = new Promise((resolve) => {
+  new Promise((resolve) => {
     // Wait for Angular to be ready
     setTimeout(() => {
       console.log('Shopline Category Manager injected script initialized');

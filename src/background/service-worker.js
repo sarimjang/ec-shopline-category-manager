@@ -14,7 +14,7 @@ const logger = {
 logger.log('Service worker initialized');
 
 // Listen for messages from content scripts
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
   logger.log('Message received from content script:', request);
 
   try {
@@ -78,7 +78,7 @@ function handleUpdateCategories(request, sendResponse) {
 /**
  * Handle exportData request
  */
-function handleExportData(request, sendResponse) {
+function handleExportData(_request, sendResponse) {
   chrome.storage.local.get(null, function(result) {
     sendResponse({
       success: true,
@@ -103,7 +103,7 @@ function handleImportData(request, sendResponse) {
 }
 
 // Handle extension icon click - will open popup.html automatically
-chrome.action.onClicked.addListener(function(tab) {
+chrome.action.onClicked.addListener(function(_tab) {
   logger.log('Extension icon clicked');
   // Popup is handled automatically by default_popup in manifest
 });

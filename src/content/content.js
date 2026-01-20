@@ -21,7 +21,7 @@
 
     if (event.data.type && event.data.type === 'FROM_PAGE') {
       // Forward messages from injected script to background service worker
-      chrome.runtime.sendMessage(event.data.payload, function(response) {
+      chrome.runtime.sendMessage(event.data.payload, function(_response) {
         if (chrome.runtime.lastError) {
           console.error('Extension error:', chrome.runtime.lastError);
         }
@@ -30,7 +30,7 @@
   });
 
   // Listen for messages from background service worker
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
     // Forward messages to the page via injected script
     if (request.type === 'TO_PAGE') {
       window.postMessage({
