@@ -1,22 +1,70 @@
 /**
  * Injected Script - Runs in MAIN world with access to window.angular
- * Defines CategoryManager and communicates with content script
  *
- * 注意: 此腳本運行在頁面上下文（MAIN world），可直接存取 window.angular
+ * 職責:
+ * 1. 提供 window._scm_getAngular() 供 content script 使用
+ * 2. 提供 window._scm_getScope() 供需要 AngularJS scope 的操作
+ * 3. 廣播 categoryManagerReady 事件表示初始化完成
  */
 
 (function() {
   'use strict';
 
   // ============================================
-  // CategoryManager 類別定義
+  // AngularJS 存取介面
+  // ============================================
+
+  /**
+   * 提供 AngularJS 物件給 content script
+   * Content script 通過呼叫此函數取得 window.angular
+   */
+  window._scm_getAngular = function() {
+    if (typeof window !== 'undefined' && window.angular) {
+      return window.angular;
+    }
+    console.warn('[Injected] AngularJS not available');
+    return null;
+  };
+
+  /**
+   * 取得 AngularJS scope
+   * 用於需要直接操作 scope 的情況
+   */
+  window._scm_getScope = function(element) {
+    const ng = window._scm_getAngular();
+    if (!ng) {
+      console.error('[Injected] AngularJS not available');
+      return null;
+    }
+    try {
+      return ng.element(element).scope();
+    } catch (error) {
+      console.error('[Injected] Failed to get scope:', error);
+      return null;
+    }
+  };
+
+  console.log('[Injected] AngularJS access functions initialized');
+
+  // ============================================
+  // 廣播初始化完成事件
+  // ============================================
+
+  window.dispatchEvent(new CustomEvent('categoryManagerReady', {
+    detail: { timestamp: new Date().toISOString() }
+  }));
+
+  console.log('[Injected] categoryManagerReady event broadcasted');
+
+  // ============================================
+  // (舊) CategoryManager 類別定義 (保留供參考)
   // ============================================
 
   class CategoryManager {
-    constructor($scope, $http) {
+    constructor($scope, $http, $rootScope) {
       this.$scope = $scope;
       this.$http = $http;
-      this.$rootScope = window.angular.injector(['ng', 'app']).get('$rootScope');
+      this.$rootScope = $rootScope;
       this.categories = [];
       this.stats = {
         totalMoves: 0,
@@ -25,7 +73,7 @@
       };
       this.storageManager = new window.StorageManager();
 
-      console.log('[CategoryManager] Initialized');
+      console.log('[CategoryManager] Initialized with injected dependencies');
     }
 
     /**
@@ -244,17 +292,45 @@
 
   function initializeCategoryManager() {
     try {
-      // 存取 AngularJS injector
+      // 正確方式獲取現有的 AngularJS injector（不是創建新的）
       const angular = window.angular;
-      const injector = angular.injector(['ng', 'app']);
+      let injector;
+
+      // 嘗試從 document.body 獲取已初始化的 injector
+      try {
+        injector = angular.element(document.body).injector();
+      } catch (e) {
+        // 如果失敗，嘗試從 document 元素獲取
+        console.warn('[Injected] Failed to get injector from body, trying document');
+        injector = angular.element(document).injector();
+      }
+
+      if (!injector) {
+        throw new Error('Cannot get AngularJS injector from page');
+      }
+
       const $rootScope = injector.get('$rootScope');
       const $http = injector.get('$http');
 
       // 初始化 CategoryManager
-      // 注意: $scope 會在 Phase 1 Task 3 中從實際的控制器取得
-      window.categoryManager = new CategoryManager($rootScope, $http);
+      window.categoryManager = new CategoryManager(null, $http, $rootScope);
 
       console.log('[Injected] CategoryManager successfully initialized');
+
+      // 設置測試/調試接口
+      window.debugCategoryManager = {
+        moveCategory: (categoryId, newParent, newPosition) => {
+          return window.categoryManager.moveCategory(categoryId, newParent, newPosition);
+        },
+        getStats: async () => {
+          return await window.categoryManager.storageManager.getStats();
+        },
+        recordMove: (timeSaved) => {
+          return window.categoryManager.storageManager.addMove(timeSaved || 5);
+        }
+      };
+
+      console.log('[Injected] Debug interface available at window.debugCategoryManager');
 
       // 廣播初始化完成事件
       window.dispatchEvent(
@@ -264,6 +340,7 @@
       );
     } catch (error) {
       console.error('[Injected] Error initializing CategoryManager:', error);
+      console.error('[Injected] Stack trace:', error.stack);
     }
   }
 

@@ -1,56 +1,34 @@
+// ==UserScript==
+// @name         Shopline 分類管理 - 快速移動 (Production)
+// @namespace    https://github.com/sarimjang/shopline-category-manager
+// @version      0.2.1
+// @description  在 Shopline 分類管理頁面添加「移動到」按鈕，支援快速分類重新整理
+// @author       Development Team
+// @match        https://admin.shoplineapp.com/admin/*/categories*
+// @match        https://*.shopline.tw/admin/*/categories*
+// @match        https://*.shopline.app/admin/*/categories*
+// @grant        GM_registerMenuCommand
+// @run-at       document-end
+// @homepage     https://github.com/sarimjang/shopline-category-manager
+// @supportURL   https://github.com/sarimjang/shopline-category-manager/issues
+// @updateURL    https://raw.githubusercontent.com/sarimjang/shopline-category-manager/main/.releases/updates.json
+// @downloadURL  https://github.com/sarimjang/shopline-category-manager/releases/download/v0.2.1/shopline-category-manager.prod.user.js
+// ==/UserScript==
+
 /**
- * Content Script - CategoryManager Migrated from Greasemonkey
- * 
- * 架構:
- * 1. 工具函數 - 樹結構操作 (getAllDescendants, isDescendant, getCategoryLevel, etc.)
- * 2. TimeSavingsTracker - 時間節省統計持久化（使用 chrome.storage.local）
- * 3. CategoryManager - 主控制類（按鈕注入、下拉選單、API呼叫）
- * 4. 初始化 - 在頁面載入時啟動
+ * Shopline 分類管理器 - 快速移動功能
  *
- * 關鍵改變:
- * - localStorage → chrome.storage.local (async)
- * - unsafeWindow.angular → window._scm_getAngular?.() (from injected.js)
- * - 移除 @grant 依賴（使用 Chrome Extension 權限）
+ * 核心職責：
+ * 1. 按鈕注入 - 在每個分類的操作區新增「移動到」按鈕
+ * 2. 下拉選單 UI - 顯示樹狀目標分類選擇
+ * 3. 移動邏輯 - 操作 AngularJS scope 進行分類重新排列
+ * 4. 層級驗證 - 確保分類移動不違反 3 層限制
  */
 
 (function() {
   'use strict';
 
   // ============================================================================
-  // 注入 injected script 以存取 AngularJS
-  // ============================================================================
-
-  /**
-   * 在主世界 (main world) 中注入腳本以存取 window.angular
-   * Content script 無法直接存取 window.angular，需要通過 injected script
-   */
-  function injectAngularAccessScript() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('content/injected.js');
-    script.onload = function() {
-      console.log('[Content] Injected script loaded successfully');
-      this.remove();
-    };
-    script.onerror = function() {
-      console.error('[Content] Failed to load injected script');
-      this.remove();
-    };
-    (document.head || document.documentElement).appendChild(script);
-  }
-
-  // 頁面載入時立即注入
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectAngularAccessScript, { once: true });
-  } else {
-    injectAngularAccessScript();
-  }
-
-  console.log('[Content] AngularJS access script injection initialized');
-
-// ============================================================================
-// 工具函數：樹結構操作
-// ============================================================================
-
   // 工具函數：樹結構操作
   // ============================================================================
 
@@ -158,116 +136,96 @@
   /**
    * TimeSavingsTracker - 追蹤並持久化時間節省統計
    */
+  class TimeSavingsTracker {
+    constructor() {
+      this.storageKey = 'categoryMoveStats';
+      this.stats = this.loadStats();
+    }
 
-
-// ============================================================================
-// 時間節省追蹤類
-// ============================================================================
-
-
-class TimeSavingsTracker {
-  constructor() {
-    this.storageKey = 'categoryMoveStats';
-    this.stats = {
-      totalMoves: 0,
-      totalTimeSaved: 0,
-      lastReset: new Date().toISOString()
-    };
-    // Initialize from storage asynchronously
-    this.loadStats().then(stats => {
-      this.stats = stats;
-    });
-  }
-
-  /**
-   * 從 chrome.storage.local 載入統計數據 (異步)
-   */
-  async loadStats() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get([this.storageKey], (result) => {
-        if (result[this.storageKey]) {
-          try {
-            resolve(JSON.parse(result[this.storageKey]));
-          } catch (error) {
-            console.warn('[TimeSavingsTracker] 載入統計失敗:', error);
-            resolve({
-              totalMoves: 0,
-              totalTimeSaved: 0,
-              lastReset: new Date().toISOString()
-            });
-          }
-        } else {
-          resolve({
-            totalMoves: 0,
-            totalTimeSaved: 0,
-            lastReset: new Date().toISOString()
-          });
+    /**
+     * 從 localStorage 載入統計數據
+     */
+    loadStats() {
+      try {
+        const data = localStorage.getItem(this.storageKey);
+        if (data) {
+          return JSON.parse(data);
         }
-      });
-    });
-  }
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] 載入統計失敗:', error);
+      }
 
-  /**
-   * 儲存統計數據到 chrome.storage.local
-   */
-  saveStats() {
-    return new Promise((resolve) => {
-      chrome.storage.local.set({
-        [this.storageKey]: JSON.stringify(this.stats)
-      }, () => {
-        if (chrome.runtime.lastError) {
-          console.warn('[TimeSavingsTracker] 儲存統計失敗:', chrome.runtime.lastError);
-        }
-        resolve();
-      });
-    });
-  }
+      // 預設值
+      return {
+        totalMoves: 0,
+        totalTimeSaved: 0,
+        lastReset: new Date().toISOString()
+      };
+    }
 
-  /**
-   * 記錄單次移動並更新統計
-   */
-  recordMove(categoryCount, targetLevel, usedSearch) {
-    const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
+    /**
+     * 儲存統計數據到 localStorage
+     */
+    saveStats() {
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.stats));
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] 儲存統計失敗:', error);
+      }
+    }
 
-    this.stats.totalMoves += 1;
-    this.stats.totalTimeSaved += result.timeSaved;
-    this.saveStats();
+    /**
+     * 記錄單次移動並更新統計
+     *
+     * @param {number} categoryCount - 分類總數
+     * @param {number} targetLevel - 目標層級
+     * @param {boolean} usedSearch - 是否使用搜尋
+     * @returns {{thisMove: number, totalMoves: number, totalTime: number}}
+     */
+    recordMove(categoryCount, targetLevel, usedSearch) {
+      const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
 
-    return {
-      thisMove: result.timeSaved,
-      totalMoves: this.stats.totalMoves,
-      totalTime: this.stats.totalTimeSaved
-    };
-  }
+      this.stats.totalMoves += 1;
+      this.stats.totalTimeSaved += result.timeSaved;
+      this.saveStats();
 
-  /**
-   * 取得格式化的統計數據
-   */
-  getStats() {
-    const totalSeconds = Math.round(this.stats.totalTimeSaved * 10) / 10;
-    const totalMinutes = Math.round((this.stats.totalTimeSaved / 60) * 10) / 10;
-    const avgPerMove = this.stats.totalMoves > 0
-      ? Math.round((this.stats.totalTimeSaved / this.stats.totalMoves) * 10) / 10
-      : 0;
+      return {
+        thisMove: result.timeSaved,
+        totalMoves: this.stats.totalMoves,
+        totalTime: this.stats.totalTimeSaved
+      };
+    }
 
-    return {
-      totalMoves: this.stats.totalMoves,
-      totalSeconds,
-      totalMinutes,
-      avgPerMove,
-      startDate: this.stats.lastReset.split('T')[0]
-    };
-  }
+    /**
+     * 取得格式化的統計數據
+     *
+     * @returns {{totalMoves: number, totalSeconds: number, totalMinutes: number, avgPerMove: number, startDate: string}}
+     */
+    getStats() {
+      const totalSeconds = Math.round(this.stats.totalTimeSaved * 10) / 10;
+      const totalMinutes = Math.round((this.stats.totalTimeSaved / 60) * 10) / 10;
+      const avgPerMove = this.stats.totalMoves > 0
+        ? Math.round((this.stats.totalTimeSaved / this.stats.totalMoves) * 10) / 10
+        : 0;
 
-  /**
-   * 顯示格式化的統計訊息
-   */
-  showStats() {
-    const stats = this.getStats();
-    const minutes = Math.floor(stats.totalSeconds / 60);
-    const seconds = Math.round(stats.totalSeconds % 60);
+      return {
+        totalMoves: this.stats.totalMoves,
+        totalSeconds,
+        totalMinutes,
+        avgPerMove,
+        startDate: this.stats.lastReset.split('T')[0] // 只取日期部分
+      };
+    }
 
-    return `━━━━━━━━━━━━━━━━
+    /**
+     * 顯示格式化的統計訊息（用於 alert）
+     */
+    showStats() {
+      const stats = this.getStats();
+      const minutes = Math.floor(stats.totalSeconds / 60);
+      const seconds = Math.round(stats.totalSeconds % 60);
+
+      return `━━━━━━━━━━━━━━━━
 📊 時間節省統計
 ────────────────
 總移動次數: ${stats.totalMoves} 次
@@ -275,25 +233,24 @@ class TimeSavingsTracker {
 平均每次: ${stats.avgPerMove} 秒
 開始日期: ${stats.startDate}
 ━━━━━━━━━━━━━━━━`;
+    }
+
+    /**
+     * 重置所有統計數據
+     */
+    resetStats() {
+      this.stats = {
+        totalMoves: 0,
+        totalTimeSaved: 0,
+        lastReset: new Date().toISOString()
+      };
+      this.saveStats();
+    }
   }
 
-  /**
-   * 重置所有統計數據
-   */
-  resetStats() {
-    this.stats = {
-      totalMoves: 0,
-      totalTimeSaved: 0,
-      lastReset: new Date().toISOString()
-    };
-    this.saveStats();
-  }
-}
-
-
-// ============================================================================
-// 分類管理類
-// ============================================================================
+  // ============================================================================
+  // 分類管理工具類
+  // ============================================================================
 
   class CategoryManager {
     // Issue #10: 定義常數以移除魔法數字
@@ -770,7 +727,6 @@ class TimeSavingsTracker {
             e.stopPropagation();
 
             // 按鈕點擊處理
-            const button = e.currentTarget;
             let categoryInfo = null;
             let lookupMethod = 'unknown';
 
@@ -2048,12 +2004,6 @@ class TimeSavingsTracker {
      * 調用 Shopline API 保存分類排序到伺服器
      * 確保刷新頁面後分類排序仍然保留
      */
-
-
-// ============================================================================
-// 輔助函數
-// ============================================================================
-
     async saveCategoryOrderingToServer(sourceCategory, targetCategory, oldParentId) {
       try {
         console.log('[Shopline Category Manager] [API] 開始調用 Shopline API...');
@@ -2172,17 +2122,15 @@ class TimeSavingsTracker {
         }
 
         // 📍 Step 8: 解析響應
-        // 先讀取為 text，避免 Response body stream 被消耗後無法重複讀取
-        const responseText = await response.text();
-        
+        let responseData;
         try {
-          const responseData = JSON.parse(responseText);
+          responseData = await response.json();
           console.log('[Shopline Category Manager] [API] ✅ API 調用成功！');
           console.log('[Shopline Category Manager] [API] 回應:', JSON.stringify(responseData, null, 2));
           return { success: true };
         } catch (parseError) {
           console.warn('[Shopline Category Manager] [API] ⚠️  無法解析 JSON 響應，但狀態碼為 200');
-          console.log('[Shopline Category Manager] [API] 響應文本:', responseText);
+          console.log('[Shopline Category Manager] [API] 響應文本:', await response.text());
           return { success: true }; // 狀態碼 200，視為成功
         }
 
@@ -2564,32 +2512,52 @@ class TimeSavingsTracker {
     return null;
   }
 
-
   /**
-   * 取得 AngularJS 物件
-   * 在 Chrome Extension 中，由 injected.js 提供
+   * 等待樹有實際的分類節點
    */
-  function getAngular() {
-    // Extension context: 使用 injected script 提供的函數
-    if (typeof window._scm_getAngular === 'function') {
-      return window._scm_getAngular();
-    }
-    
-    // Fallback: 直接訪問 (如果沒有 content 隔離)
-    if (typeof window !== 'undefined' && window.angular) {
-      return window.angular;
-    }
+  function waitForTreeNodes(timeout = CategoryManager.TREE_NODES_TIMEOUT_MS) {
+    return new Promise((resolve, reject) => {
+      console.log('[Shopline Category Manager] 等待樹節點載入...');
 
-    console.warn('[CategoryManager] AngularJS 不可用');
-    return null;
+      // 檢查是否已有分類節點
+      const checkNodes = () => {
+        const nodes = document.querySelectorAll('.angular-ui-tree-node');
+        if (nodes.length > 0) {
+          console.log('[Shopline Category Manager] ✓ 找到', nodes.length, '個樹節點');
+          return true;
+        }
+        return false;
+      };
+
+      if (checkNodes()) {
+        resolve();
+        return;
+      }
+
+      // 監聽 DOM 變化
+      const observer = new MutationObserver(() => {
+        if (checkNodes()) {
+          observer.disconnect();
+          resolve();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Timeout waiting for tree nodes'));
+      }, timeout);
+    });
   }
 
-
-// ============================================================================
-// 初始化函數
-// ============================================================================
-
-  (async function initialize() {
+  /**
+   * 初始化應用
+   */
+  async function init() {
     try {
       console.log('[Shopline Category Manager] 正在初始化...');
 
@@ -2706,34 +2674,23 @@ class TimeSavingsTracker {
       console.error('[Shopline Category Manager] 初始化錯誤:', error);
       console.error('[Shopline Category Manager] 錯誤堆棧:', error.stack);
     }
-  })();
-
-
+  }
 
   // ============================================================================
   // 啟動應用
   // ============================================================================
 
-  console.log('[Shopline Category Manager] Content script loaded, document.readyState:', document.readyState);
+  console.log('[Shopline Category Manager] 腳本已載入，document.readyState:', document.readyState);
 
-  // 等待 injected script 準備完成
-  if (typeof window._scm_getAngular === 'undefined') {
-    console.log('[Shopline Category Manager] 等待 injected script...');
-    window.addEventListener('categoryManagerReady', () => {
-      console.log('[Shopline Category Manager] Injected script ready, initializing');
+  // 頁面載入完成後初始化
+  if (document.readyState === 'loading') {
+    console.log('[Shopline Category Manager] 監聽 DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Shopline Category Manager] DOMContentLoaded 觸發');
+      init();
     });
   } else {
-    // 頁面載入完成後初始化
-    if (document.readyState === 'loading') {
-      console.log('[Shopline Category Manager] 監聽 DOMContentLoaded...');
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log('[Shopline Category Manager] DOMContentLoaded 觸發');
-      });
-    } else {
-      console.log('[Shopline Category Manager] 頁面已載入，直接初始化...');
-    }
+    console.log('[Shopline Category Manager] 頁面已載入，直接初始化...');
+    init();
   }
-
 })();
-
-console.log('[Content Script] Shopline Category Manager content script loaded');

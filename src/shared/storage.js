@@ -148,15 +148,186 @@ class StorageManager {
   /**
    * Add a move record and update statistics
    * @param {number} timeSaved - Time saved in seconds
+   * @param {Object} moveDetails - Additional move details (optional)
+   *   - categoryId, categoryName, targetLevel, usedSearch
    * @returns {Promise<Object>} Updated statistics
    */
-  async addMove(timeSaved) {
+  async addMove(timeSaved, moveDetails = {}) {
     const stats = await this.getStats();
     stats.totalMoves += 1;
     stats.totalTimeSaved += timeSaved;
+
+    // Track individual move history
+    const moveHistory = await this.getMoveHistory();
+    moveHistory.push({
+      timestamp: new Date().toISOString(),
+      timeSaved: timeSaved,
+      categoryId: moveDetails.categoryId,
+      categoryName: moveDetails.categoryName,
+      targetLevel: moveDetails.targetLevel,
+      usedSearch: moveDetails.usedSearch
+    });
+
+    // Keep only last 500 moves
+    if (moveHistory.length > 500) {
+      moveHistory.shift();
+    }
+
     await this.setStats(stats);
-    this.logger.log('[StorageManager] Move recorded:', { timeSaved, stats });
+    await this.setMoveHistory(moveHistory);
+    this.logger.log('[StorageManager] Move recorded:', { timeSaved, moveDetails, stats });
     return stats;
+  }
+
+  /**
+   * Get move history
+   * @returns {Promise<Array>} Array of move records with timestamps
+   */
+  async getMoveHistory() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['moveHistory'], (result) => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] getMoveHistory error:', chrome.runtime.lastError);
+          resolve([]);
+        } else {
+          resolve(result.moveHistory || []);
+        }
+      });
+    });
+  }
+
+  /**
+   * Set move history
+   * @param {Array} history - Move history array
+   * @returns {Promise<void>}
+   */
+  async setMoveHistory(history) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ moveHistory: history }, () => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] setMoveHistory error:', chrome.runtime.lastError);
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Track search query
+   * @param {string} query - Search query string
+   * @returns {Promise<Array>} Updated search history
+   */
+  async recordSearchQuery(query) {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
+    const searchHistory = await this.getSearchHistory();
+
+    // Add to beginning if not already there
+    const index = searchHistory.indexOf(query);
+    if (index > -1) {
+      searchHistory.splice(index, 1);
+    }
+    searchHistory.unshift(query);
+
+    // Keep only last 50 searches
+    if (searchHistory.length > 50) {
+      searchHistory.pop();
+    }
+
+    await this.setSearchHistory(searchHistory);
+    this.logger.log('[StorageManager] Search query recorded:', query);
+    return searchHistory;
+  }
+
+  /**
+   * Get search query history
+   * @returns {Promise<Array>} Array of search queries (most recent first)
+   */
+  async getSearchHistory() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['searchHistory'], (result) => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] getSearchHistory error:', chrome.runtime.lastError);
+          resolve([]);
+        } else {
+          resolve(result.searchHistory || []);
+        }
+      });
+    });
+  }
+
+  /**
+   * Set search history
+   * @param {Array} history - Search history array
+   * @returns {Promise<void>}
+   */
+  async setSearchHistory(history) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ searchHistory: history }, () => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] setSearchHistory error:', chrome.runtime.lastError);
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Log error for diagnostics
+   * @param {Object} errorData - Error details
+   * @returns {Promise<void>}
+   */
+  async recordError(errorData) {
+    const errorLog = await this.getErrorLog();
+    errorLog.unshift({
+      timestamp: new Date().toISOString(),
+      type: errorData.type,      // 'network', 'api', 'validation', 'scope'
+      message: errorData.message,
+      details: errorData.details
+    });
+
+    // Keep only last 100 errors
+    if (errorLog.length > 100) {
+      errorLog.pop();
+    }
+
+    await this.setErrorLog(errorLog);
+    this.logger.log('[StorageManager] Error recorded:', errorData);
+  }
+
+  /**
+   * Get error log
+   * @returns {Promise<Array>} Array of error records
+   */
+  async getErrorLog() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['errorLog'], (result) => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] getErrorLog error:', chrome.runtime.lastError);
+          resolve([]);
+        } else {
+          resolve(result.errorLog || []);
+        }
+      });
+    });
+  }
+
+  /**
+   * Set error log
+   * @param {Array} log - Error log array
+   * @returns {Promise<void>}
+   */
+  async setErrorLog(log) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ errorLog: log }, () => {
+        if (chrome.runtime.lastError) {
+          this.logger.error('[StorageManager] setErrorLog error:', chrome.runtime.lastError);
+        }
+        resolve();
+      });
+    });
   }
 
   /**
