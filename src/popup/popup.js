@@ -39,6 +39,7 @@
     await loadStats();
     await loadSearchHistory();
     await loadErrorLog();
+    await loadTimeSummary();
     initValidationSteps();
 
     document.getElementById('resetBtn').addEventListener('click', handleReset);
@@ -46,6 +47,8 @@
     document.getElementById('searchInput').addEventListener('input', handleSearchInput);
     document.getElementById('clearHistory').addEventListener('click', handleClearHistory);
     document.getElementById('clearErrors').addEventListener('click', handleClearErrors);
+    document.getElementById('exportStats').addEventListener('click', handleExportStats);
+    document.getElementById('undoLastMove').addEventListener('click', handleUndoLastMove);
 
     window.addEventListener('categoryStats', (e) => {
       updateUI(e.detail.stats);
@@ -316,6 +319,162 @@
     }, 600);
   }
 
+  // ============================================================================
+  // TIME TRACKING SECTION (Stage 8)
+  // ============================================================================
+
+  async function loadTimeSummary() {
+    try {
+      const stats = await storageManager.getStats();
+      const moveHistory = await storageManager.getMoveHistory();
+      displayTimeSummary(stats, moveHistory);
+    } catch (error) {
+      logger.error('[Popup] Error loading time summary:', error);
+    }
+  }
+
+  function displayTimeSummary(stats, moveHistory) {
+    const { totalTimeSaved = 0, totalMoves = 0 } = stats;
+
+    // Format time saved: convert seconds to hours/minutes
+    const totalMinutes = Math.floor(totalTimeSaved / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    document.getElementById('dailyTimeSaved').textContent = hours + ' 小時 ' + minutes + ' 分';
+
+    // Last move time
+    if (moveHistory.length > 0) {
+      const lastMove = moveHistory[moveHistory.length - 1];
+      const lastMoveDate = new Date(lastMove.timestamp);
+      const timeStr = lastMoveDate.toLocaleTimeString('zh-TW', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      document.getElementById('lastMoveTime').textContent = timeStr;
+    } else {
+      document.getElementById('lastMoveTime').textContent = '-';
+    }
+
+    // Total moves today
+    document.getElementById('totalMovesToday').textContent = totalMoves;
+
+    // Display recent moves (last 5)
+    displayRecentMoves(moveHistory.slice(0, 5));
+  }
+
+  function displayRecentMoves(moveHistory) {
+    const container = document.getElementById('recentMoves');
+
+    if (moveHistory.length === 0) {
+      container.innerHTML = '';
+      const noMoves = document.createElement('div');
+      noMoves.style.padding = '12px';
+      noMoves.style.textAlign = 'center';
+      noMoves.style.color = '#9ca3af';
+      noMoves.style.fontSize = '12px';
+      noMoves.textContent = '尚無移動記錄';
+      container.appendChild(noMoves);
+      return;
+    }
+
+    container.innerHTML = '';
+    moveHistory.forEach(move => {
+      const moveDate = new Date(move.timestamp);
+      const timeStr = moveDate.toLocaleTimeString('zh-TW', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const item = document.createElement('div');
+      item.className = 'move-item';
+
+      const timeEl = document.createElement('span');
+      timeEl.className = 'move-item-time';
+      timeEl.textContent = timeStr;
+
+      const detailEl = document.createElement('span');
+      detailEl.className = 'move-item-detail';
+      detailEl.textContent = (move.categoryName || 'Category #' + move.categoryId) +
+        ' → Level ' + (move.targetLevel || '-') +
+        ' (' + move.timeSaved + 's)';
+
+      item.appendChild(timeEl);
+      item.appendChild(detailEl);
+      container.appendChild(item);
+    });
+  }
+
+  async function handleExportStats() {
+    try {
+      const stats = await storageManager.getStats();
+      const moveHistory = await storageManager.getMoveHistory();
+      const searchHistory = await storageManager.getSearchHistory();
+
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        stats: stats,
+        moveHistory: moveHistory,
+        searchHistory: searchHistory
+      };
+
+      const json = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'shopline-category-stats-' + new Date().toISOString().split('T')[0] + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showStatus('統計已匯出', 'success');
+      logger.log('[Popup] Stats exported');
+    } catch (error) {
+      logger.error('[Popup] Error exporting stats:', error);
+      showStatus('匯出失敗', 'error');
+    }
+  }
+
+  async function handleUndoLastMove() {
+    try {
+      const moveHistory = await storageManager.getMoveHistory();
+
+      if (moveHistory.length === 0) {
+        showStatus('無可撤銷的移動', 'error');
+        return;
+      }
+
+      // Remove last move
+      const lastMove = moveHistory.pop();
+
+      // Update move history
+      await storageManager.setMoveHistory(moveHistory);
+
+      // Deduct from stats
+      const stats = await storageManager.getStats();
+      if (stats.totalMoves > 0) {
+        stats.totalMoves -= 1;
+        stats.totalTimeSaved = Math.max(0, stats.totalTimeSaved - lastMove.timeSaved);
+      }
+      await storageManager.setStats(stats);
+
+      // Refresh UI
+      await loadTimeSummary();
+      await loadStats();
+      showStatus('已撤銷上次移動', 'success');
+      logger.log('[Popup] Last move undone:', lastMove);
+    } catch (error) {
+      logger.error('[Popup] Error undoing last move:', error);
+      showStatus('撤銷失敗', 'error');
+    }
+  }
+
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+
   function showStatus(message, type) {
     type = type || 'success';
     const el = document.getElementById('status');
@@ -332,6 +491,8 @@
     updateValidationStep,
     displayValidationProgress,
     loadErrorLog,
-    loadSearchHistory
+    loadSearchHistory,
+    loadTimeSummary,
+    displayTimeSummary
   };
 })();

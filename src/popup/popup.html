@@ -25,6 +25,33 @@
       </div>
     </div>
 
+    <!-- Time Tracking Summary (Stage 8) -->
+    <div id="timeSummary" class="popup-section">
+      <h3>📊 時間追蹤摘要</h3>
+      <div class="time-summary-grid">
+        <div class="time-summary-item">
+          <span class="label">今日節省:</span>
+          <span class="value" id="dailyTimeSaved">0 小時 0 分</span>
+        </div>
+        <div class="time-summary-item">
+          <span class="label">上次移動:</span>
+          <span class="value" id="lastMoveTime">-</span>
+        </div>
+        <div class="time-summary-item">
+          <span class="label">移動次數:</span>
+          <span class="value" id="totalMovesToday">0</span>
+        </div>
+      </div>
+      <div id="moveHistory" class="move-history">
+        <h4>最近移動</h4>
+        <div id="recentMoves" class="recent-moves-list"></div>
+      </div>
+      <div class="time-actions">
+        <button id="exportStats" class="btn btn-small">匯出統計</button>
+        <button id="undoLastMove" class="btn btn-small">撤銷上次移動</button>
+      </div>
+    </div>
+
     <!-- Search Section (Stage 5) -->
     <div id="searchSection" class="popup-section">
       <h3>搜尋類別</h3>

@@ -439,3 +439,91 @@ h1 {
   font-size: 12px;
   font-style: italic;
 }
+
+/* ============================================================================
+   TIME TRACKING SECTION (Stage 8)
+   ============================================================================ */
+
+.time-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.time-summary-item {
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+  padding: 10px;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.time-summary-item .label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.time-summary-item .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.move-history {
+  margin: 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.move-history h4 {
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.recent-moves-list {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.move-item {
+  padding: 8px;
+  background: #fafafa;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11px;
+  color: #374151;
+}
+
+.move-item:last-child {
+  border-bottom: none;
+}
+
+.move-item-time {
+  color: #9ca3af;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.move-item-detail {
+  color: #111827;
+  font-weight: 500;
+}
+
+.time-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.time-actions .btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+}
