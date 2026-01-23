@@ -25,6 +25,38 @@
       </div>
     </div>
 
+    <!-- Search Section (Stage 5) -->
+    <div id="searchSection" class="popup-section">
+      <h3>搜尋類別</h3>
+      <input type="text" id="searchInput" class="search-input" placeholder="輸入類別名稱...">
+      <div id="searchResults" class="results-list">
+        <!-- 動態結果 -->
+      </div>
+      <div id="searchHistory" class="history-section">
+        <h4>最近搜尋</h4>
+        <div id="historyList" class="history-list"></div>
+        <button id="clearHistory" class="btn btn-small">清除歷史</button>
+      </div>
+    </div>
+
+    <!-- Error Section (Stage 6) -->
+    <div id="errorSection" class="popup-section">
+      <h3>錯誤日誌</h3>
+      <div id="errorList" class="error-list">
+        <!-- 動態錯誤項目 -->
+      </div>
+      <button id="clearErrors" class="btn btn-small">清除錯誤</button>
+    </div>
+
+    <!-- Validation Section (Stage 7) -->
+    <div id="validationSection" class="popup-section">
+      <h3>移動驗證進度</h3>
+      <div id="validationSteps" class="validation-steps">
+        <!-- 8 個步驟指示器 -->
+      </div>
+      <div id="validationStatus" class="status-message"></div>
+    </div>
+
     <div class="buttons">
       <button id="resetBtn" class="btn btn-secondary">Reset Stats</button>
       <button id="settingsBtn" class="btn btn-secondary">Settings</button>

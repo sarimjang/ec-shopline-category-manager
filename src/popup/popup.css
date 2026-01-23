@@ -109,3 +109,333 @@ h1 {
   background: #fee2e2;
   color: #991b1b;
 }
+
+/* ============================================================================
+   SEARCH SECTION (Stage 5)
+   ============================================================================ */
+
+.popup-section {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.popup-section h3 {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #111827;
+  font-weight: 600;
+}
+
+.popup-section h4 {
+  font-size: 12px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.results-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.result-item {
+  padding: 8px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.result-item:hover {
+  background: #f9fafb;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.no-results {
+  padding: 12px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.history-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.history-list {
+  max-height: 100px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.history-item {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.history-item:hover {
+  background: #f3f4f6;
+}
+
+.btn-small {
+  padding: 6px 10px;
+  font-size: 11px;
+  width: 100%;
+}
+
+/* ============================================================================
+   ERROR SECTION (Stage 6)
+   ============================================================================ */
+
+.error-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.error-item {
+  padding: 8px;
+  border-left: 3px solid;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #fefefe;
+}
+
+.error-item .error-time {
+  display: block;
+  color: #9ca3af;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.error-item .error-type {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  margin-right: 6px;
+  color: white;
+}
+
+.error-item .error-message {
+  display: block;
+  color: #374151;
+  margin-top: 4px;
+}
+
+/* Error type colors */
+.error-network {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.error-network .error-type {
+  background: #ef4444;
+}
+
+.error-api {
+  border-left-color: #f97316;
+  background: #fff7ed;
+}
+
+.error-api .error-type {
+  background: #f97316;
+}
+
+.error-validation {
+  border-left-color: #eab308;
+  background: #fefce8;
+}
+
+.error-validation .error-type {
+  background: #eab308;
+}
+
+.error-scope {
+  border-left-color: #a855f7;
+  background: #faf5ff;
+}
+
+.error-scope .error-type {
+  background: #a855f7;
+}
+
+.error-unknown {
+  border-left-color: #6b7280;
+  background: #f9fafb;
+}
+
+.error-unknown .error-type {
+  background: #6b7280;
+}
+
+.no-errors {
+  padding: 16px;
+  text-align: center;
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ============================================================================
+   VALIDATION SECTION (Stage 7)
+   ============================================================================ */
+
+.validation-steps {
+  margin-bottom: 12px;
+}
+
+.validation-step {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+
+.validation-step .step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 11px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.validation-step .step-label {
+  flex: 1;
+  color: #374151;
+  font-weight: 500;
+}
+
+.validation-step .step-status {
+  font-size: 16px;
+  margin-left: 8px;
+}
+
+/* Step status states */
+.validation-step.pending {
+  background: #f9fafb;
+}
+
+.validation-step.pending .step-number {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
+.validation-step.running {
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+}
+
+.validation-step.running .step-number {
+  background: #3b82f6;
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.validation-step.success {
+  background: #d1fae5;
+}
+
+.validation-step.success .step-number {
+  background: #10b981;
+  color: white;
+}
+
+.validation-step.error {
+  background: #fee2e2;
+}
+
+.validation-step.error .step-number {
+  background: #ef4444;
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.status-message {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.status-message.idle {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-message.running {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-message.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-message.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.no-validation {
+  padding: 16px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
