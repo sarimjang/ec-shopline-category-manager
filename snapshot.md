@@ -1,6 +1,21 @@
 ## 專案目錄結構
 
 ```text
+├── .beads
+│   ├── export-state
+│   │   └── b8777a759c312083.json
+│   ├── .gitignore
+│   ├── .local_version
+│   ├── beads.db
+│   ├── beads.db-shm
+│   ├── beads.db-wal
+│   ├── config.yaml
+│   ├── daemon.lock
+│   ├── daemon.pid
+│   ├── interactions.jsonl
+│   ├── issues.jsonl
+│   ├── metadata.json
+│   └── README.md
 ├── .claude
 │   ├── commands
 │   │   └── openspec
@@ -111,6 +126,7 @@
 │   ├── shopline-category-manager.prod.user.js.backup.2026-01-15T06-45-23
 │   ├── shopline-category-manager.prod.user.js.backup.2026-01-15T07-08-23
 │   └── shopline-category-manager.user.js
+├── .gitattributes
 ├── .gitignore
 ├── AGENTS.md
 ├── BATCH_OPERATIONS_ANALYSIS.md
