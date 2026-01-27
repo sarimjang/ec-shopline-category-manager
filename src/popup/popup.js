@@ -1,6 +1,7 @@
 /**
  * Popup UI Script - Shopline Category Manager Statistics Panel
  * Displays category move statistics and provides extension controls
+ * Includes import preview UI and execution flow
  */
 
 (function() {
@@ -11,6 +12,13 @@
   let autoRefreshInterval = null;
   const AUTO_REFRESH_MS = 2000; // 每 2 秒更新一次統計
   const STATUS_DISPLAY_MS = 3000; // 狀態訊息顯示 3 秒
+
+  // 預覽狀態
+  let previewState = {
+    validationResult: null,
+    selectedFile: null,
+    isImporting: false
+  };
 
   /**
    * 初始化彈出窗口
@@ -24,12 +32,19 @@
       // 初始化存儲管理器
       storageManager = new window.StorageManager();
 
-      // 綁定按鈕事件
+      // 綁定主要按鈕事件
       document.getElementById('resetStatsBtn').addEventListener('click', handleResetStats);
       document.getElementById('exportBtn').addEventListener('click', handleExport);
       document.getElementById('importBtn').addEventListener('click', handleImport);
       document.getElementById('settingsBtn').addEventListener('click', handleSettings);
       document.getElementById('importFile').addEventListener('change', handleFileImport);
+
+      // 綁定預覽面板事件
+      document.getElementById('closePreviewBtn').addEventListener('click', closePreviewPanel);
+      document.getElementById('previewOverlay').addEventListener('click', closePreviewPanel);
+      document.getElementById('previewCancelBtn').addEventListener('click', closePreviewPanel);
+      document.getElementById('previewSaveBackupBtn').addEventListener('click', handleSaveBackupBeforeImport);
+      document.getElementById('previewImportBtn').addEventListener('click', handleConfirmImport);
 
       // 初次加載統計
       await loadAndDisplayStats();
@@ -238,12 +253,8 @@
   }
 
   /**
-   * 處理文件選擇
-   */
-
-  /**
-   * 處理文件選擇 - 新的驗證工作流程
-   * 現在會先驗證，顯示衝突，然後要求用戶確認
+   * 處理文件選擇 - 新的預覽工作流程
+   * 讀取文件 → 驗證 → 顯示預覽面板 → 用戶確認 → 執行匯入
    */
   async function handleFileImport(event) {
     const file = event.target.files[0];
@@ -254,6 +265,9 @@
     try {
       setButtonLoading('importBtn', true);
       showStatus('正在驗證匯入檔案...', 'loading');
+
+      // 保存文件信息
+      previewState.selectedFile = file;
 
       // 讀取文件內容
       const content = await file.text();
@@ -281,53 +295,15 @@
         const errorMessage = formatValidationErrors(validationResult.errors);
         showStatus('驗證失敗：' + errorMessage, 'error');
         logger.error('[Popup] Import validation failed:', validationResult.errors);
-        setButtonLoading('importBtn', false);
         event.target.value = '';
         return;
       }
 
-      // 顯示驗證結果摘要
-      const summary = validationResult.summary;
-      const summaryText = '移動: ' + summary.totalMoves + ' (' + summary.moveRecords + ' 筆記錄)\\n搜尋: ' + summary.searchQueries + ' 個查詢\\n錯誤: ' + summary.errorRecords + ' 筆錯誤日誌';
+      // 保存驗證結果並顯示預覽面板
+      previewState.validationResult = validationResult;
+      showImportPreview(validationResult, file.size);
+      showStatus('驗證完成，請檢查匯入預覽', 'success');
 
-      // 檢查是否有衝突
-      if (validationResult.conflictDetected) {
-        const conflictSummary = validationResult.conflictSummary;
-        const conflictText = formatConflictSummary(conflictSummary);
-
-        const confirmMessage = '匯入資料驗證成功，但偵測到以下衝突:\\n' + conflictText + '\\n\\n資料摘要:\\n' + summaryText + '\\n\\n合併策略:\\n' + formatMergeStrategy(validationResult.mergeStrategy) + '\\n\\n要繼續匯入嗎?';
-
-        if (!confirm(confirmMessage)) {
-          showStatus('匯入已取消', 'error');
-          logger.log('[Popup] Import cancelled by user');
-          setButtonLoading('importBtn', false);
-          event.target.value = '';
-          return;
-        }
-
-        // 使用合併後的資料
-        showStatus('正在匯入並合併資料...', 'loading');
-        await performImport(validationResult.mergedData);
-      } else {
-        // 沒有衝突，直接匯入
-        const confirmMessage = '匯入資料驗證成功，準備匯入:\\n' + summaryText + '\\n\\n確認匯入嗎?';
-
-        if (!confirm(confirmMessage)) {
-          showStatus('匯入已取消', 'error');
-          logger.log('[Popup] Import cancelled by user');
-          setButtonLoading('importBtn', false);
-          event.target.value = '';
-          return;
-        }
-
-        showStatus('正在匯入資料...', 'loading');
-        await performImport(validationResult.data);
-      }
-
-      // 刷新顯示
-      await loadAndDisplayStats();
-      showStatus('匯入成功', 'success');
-      logger.log('[Popup] 匯入成功');
     } catch (error) {
       logger.error('[Popup] 匯入失敗:', error);
       showStatus('匯入失敗：' + error.message, 'error');
@@ -344,18 +320,318 @@
   async function performImport(data) {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
-        { action: 'importData', data: data },
+        { action: 'executeImportData', data: data },
         (response) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
-          } else if (!response.success) {
-            reject(new Error(response.message || '匯入失敗'));
+          } else if (!response || !response.success) {
+            reject(new Error(response?.message || '匯入失敗'));
           } else {
             resolve(response);
           }
         }
       );
     });
+  }
+
+  /**
+   * 顯示匯入預覽面板
+   * 顯示資料摘要、衝突列表、合併策略和匯入影響
+   */
+  function showImportPreview(validationResult, fileSize) {
+    const summary = validationResult.summary;
+
+    // 更新資料摘要
+    document.getElementById('previewMoves').textContent = summary.moveRecords;
+    document.getElementById('previewSearches').textContent = summary.searchQueries;
+    document.getElementById('previewErrors').textContent = summary.errorRecords;
+    document.getElementById('previewFileSize').textContent = formatFileSize(fileSize);
+
+    // 顯示衝突列表（如果存在）
+    if (validationResult.conflictDetected && validationResult.conflicts.length > 0) {
+      displayConflicts(validationResult.conflicts);
+    } else {
+      document.getElementById('conflictsSection').style.display = 'none';
+    }
+
+    // 顯示合併策略
+    displayMergeStrategy(validationResult.mergeStrategy);
+
+    // 顯示匯入影響
+    displayImpactPreview(validationResult);
+
+    // 顯示預覽面板和覆蓋層
+    document.getElementById('importPreviewPanel').style.display = 'block';
+    document.getElementById('previewOverlay').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    logger.log('[Popup] 匯入預覽面板已顯示');
+  }
+
+  /**
+   * 顯示衝突列表
+   */
+  function displayConflicts(conflicts) {
+    const section = document.getElementById('conflictsSection');
+    const list = document.getElementById('conflictsList');
+    const count = document.getElementById('conflictCount');
+
+    count.textContent = conflicts.length;
+    list.textContent = '';
+
+    const conflictsByType = {};
+    conflicts.forEach(conflict => {
+      if (!conflictsByType[conflict.type]) {
+        conflictsByType[conflict.type] = [];
+      }
+      conflictsByType[conflict.type].push(conflict);
+    });
+
+    Object.entries(conflictsByType).forEach(([_type, items]) => {
+      items.forEach(conflict => {
+        const item = document.createElement('div');
+        item.className = 'conflict-item';
+
+        const severity = conflict.severity || 'INFO';
+        const severityClass = severity === 'ERROR' ? 'error' : severity === 'WARNING' ? 'warning' : 'info';
+        const severityIcon = severity === 'ERROR' ? '❌' : severity === 'WARNING' ? '⚠️' : 'ℹ️';
+
+        const severityDiv = document.createElement('div');
+        severityDiv.className = 'conflict-severity ' + severityClass;
+        severityDiv.textContent = severityIcon;
+
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'conflict-details';
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'conflict-message';
+        messageDiv.textContent = conflict.message;
+
+        const resolutionDiv = document.createElement('div');
+        resolutionDiv.className = 'conflict-resolution';
+        resolutionDiv.textContent = '建議處理: ';
+        const strong = document.createElement('strong');
+        strong.textContent = conflict.resolution;
+        resolutionDiv.appendChild(strong);
+
+        detailsDiv.appendChild(messageDiv);
+        detailsDiv.appendChild(resolutionDiv);
+        item.appendChild(severityDiv);
+        item.appendChild(detailsDiv);
+
+        list.appendChild(item);
+      });
+    });
+
+    section.style.display = 'block';
+  }
+
+  /**
+   * 顯示合併策略
+   */
+  function displayMergeStrategy(strategy) {
+    const display = document.getElementById('mergeStrategyDisplay');
+    display.textContent = '';
+
+    if (!strategy) {
+      const item = document.createElement('div');
+      item.className = 'strategy-item';
+      const label = document.createElement('span');
+      label.className = 'strategy-label';
+      label.textContent = '無衝突，直接匯入';
+      item.appendChild(label);
+      display.appendChild(item);
+      return;
+    }
+
+    const strategies = [
+      { label: '移動記錄', value: strategy.moves },
+      { label: '搜尋查詢', value: strategy.searches },
+      { label: '錯誤日誌', value: strategy.errors },
+      { label: '統計資料', value: strategy.stats }
+    ];
+
+    strategies.forEach(s => {
+      if (s.value) {
+        const item = document.createElement('div');
+        item.className = 'strategy-item';
+
+        const label = document.createElement('span');
+        label.className = 'strategy-label';
+        label.textContent = s.label;
+
+        const value = document.createElement('span');
+        value.className = 'strategy-value';
+        value.textContent = s.value;
+
+        item.appendChild(label);
+        item.appendChild(value);
+        display.appendChild(item);
+      }
+    });
+  }
+
+  /**
+   * 顯示匯入影響預覽
+   */
+  function displayImpactPreview(validationResult) {
+    const preview = document.getElementById('impactPreview');
+    preview.textContent = '';
+
+    const summary = validationResult.summary;
+    const impacts = [];
+
+    if (summary.moveRecords > 0) {
+      impacts.push({
+        type: 'success',
+        text: '將新增或合併 ' + summary.moveRecords + ' 筆移動記錄'
+      });
+    }
+
+    if (summary.searchQueries > 0) {
+      impacts.push({
+        type: 'success',
+        text: '將新增或合併 ' + summary.searchQueries + ' 個搜尋查詢'
+      });
+    }
+
+    if (validationResult.conflictDetected && validationResult.conflictSummary) {
+      const cs = validationResult.conflictSummary;
+      if (cs.duplicateMoves > 0) {
+        impacts.push({
+          type: 'warning',
+          text: '將跳過 ' + cs.duplicateMoves + ' 筆重複的移動記錄'
+        });
+      }
+      if (cs.duplicateSearches > 0) {
+        impacts.push({
+          type: 'warning',
+          text: '將跳過 ' + cs.duplicateSearches + ' 個重複的搜尋'
+        });
+      }
+    }
+
+    impacts.push({
+      type: 'success',
+      text: '預計匯入後保留 ' + (summary.moveRecords + 10) + ' 筆記錄'
+    });
+
+    impacts.forEach(impact => {
+      const item = document.createElement('div');
+      item.className = 'impact-item ' + impact.type;
+      item.textContent = impact.text;
+      preview.appendChild(item);
+    });
+  }
+
+  /**
+   * 關閉預覽面板
+   */
+  function closePreviewPanel() {
+    document.getElementById('importPreviewPanel').style.display = 'none';
+    document.getElementById('previewOverlay').style.display = 'none';
+    document.body.style.overflow = 'auto';
+
+    previewState.validationResult = null;
+    previewState.selectedFile = null;
+
+    logger.log('[Popup] 預覽面板已關閉');
+  }
+
+  /**
+   * 保存備份
+   */
+  async function handleSaveBackupBeforeImport() {
+    try {
+      setButtonLoading('previewSaveBackupBtn', true);
+      showStatus('正在保存備份...', 'loading');
+
+      await handleExport();
+
+      showStatus('備份已保存', 'success');
+      logger.log('[Popup] 備份已保存');
+    } catch (error) {
+      logger.error('[Popup] 保存備份失敗:', error);
+      showStatus('備份失敗：' + error.message, 'error');
+    } finally {
+      setButtonLoading('previewSaveBackupBtn', false);
+    }
+  }
+
+  /**
+   * 確認並執行匯入
+   */
+  async function handleConfirmImport() {
+    if (!previewState.validationResult) {
+      showStatus('預覽數據遺失，請重新選擇檔案', 'error');
+      return;
+    }
+
+    try {
+      previewState.isImporting = true;
+      setButtonLoading('previewImportBtn', true);
+
+      document.getElementById('progressSection').style.display = 'block';
+      updateImportProgress(0, '開始匯入...');
+
+      const validationResult = previewState.validationResult;
+      const dataToImport = validationResult.conflictDetected
+        ? validationResult.mergedData
+        : validationResult.data;
+
+      await performImport(dataToImport);
+
+      updateImportProgress(100, '匯入完成！');
+
+      setTimeout(async () => {
+        await loadAndDisplayStats();
+
+        const summary = validationResult.summary;
+        const successMsg = '匯入成功！已匯入 ' + summary.moveRecords + ' 筆移動記錄、' + summary.searchQueries + ' 個搜尋';
+        showStatus(successMsg, 'success');
+
+        logger.log('[Popup] 匯入完成');
+
+        closePreviewPanel();
+      }, 1000);
+
+    } catch (error) {
+      logger.error('[Popup] 執行匯入失敗:', error);
+      showStatus('匯入失敗：' + error.message, 'error');
+      updateImportProgress(0, '匯入失敗');
+    } finally {
+      previewState.isImporting = false;
+      setButtonLoading('previewImportBtn', false);
+    }
+  }
+
+  /**
+   * 更新匯入進度顯示
+   */
+  function updateImportProgress(percentage, message) {
+    const progressSection = document.getElementById('progressSection');
+    const progressFill = document.getElementById('progressFill');
+    const progressMessage = document.getElementById('progressMessage');
+
+    if (progressSection.style.display !== 'block') {
+      progressSection.style.display = 'block';
+    }
+
+    progressFill.style.width = percentage + '%';
+    progressMessage.textContent = message;
+
+    logger.log('[Popup] 匯入進度:', percentage + '%', message);
+  }
+
+  /**
+   * 格式化文件大小
+   */
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   /**
@@ -377,7 +653,7 @@
   /**
    * 格式化衝突摘要
    */
-  function formatConflictSummary(summary) {
+  function _formatConflictSummary(summary) {
     const conflicts = [];
 
     if (summary.duplicateMoves > 0) {
@@ -402,7 +678,7 @@
   /**
    * 格式化合併策略
    */
-  function formatMergeStrategy(strategy) {
+  function _formatMergeStrategy(strategy) {
     if (!strategy) {
       return '無';
     }
@@ -423,44 +699,6 @@
     }
 
     return strategies.length > 0 ? strategies.join('\\n') : '無';
-  }
-    const file = event.target.files[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      setButtonLoading('importBtn', true);
-      showStatus('正在匯入...', 'loading');
-
-      const content = await file.text();
-      const data = JSON.parse(content);
-
-      // 驗證數據結構
-      if (!data.stats || !data.moveHistory) {
-        throw new Error('無效的匯入文件格式');
-      }
-
-      // 保存匯入的數據
-      await storageManager.setStats(data.stats);
-      await storageManager.setMoveHistory(data.moveHistory);
-      if (data.searchHistory) {
-        await storageManager.setSearchHistory(data.searchHistory);
-      }
-
-      // 刷新顯示
-      await loadAndDisplayStats();
-
-      showStatus('統計已匯入', 'success');
-      logger.log('[Popup] 統計已匯入');
-    } catch (error) {
-      logger.error('[Popup] 匯入失敗:', error);
-      showStatus('匯入失敗：' + error.message, 'error');
-    } finally {
-      setButtonLoading('importBtn', false);
-      // 重置文件輸入
-      event.target.value = '';
-    }
   }
 
   /**
