@@ -189,7 +189,7 @@
             action: 'recordCategoryMove',
             timeSaved: result.timeSaved
           },
-          response => {
+          (_response) => {
             if (chrome.runtime.lastError) {
               console.warn('[TimeSavingsTracker] Failed to record move in service worker:', chrome.runtime.lastError);
             } else {
@@ -548,8 +548,7 @@
       // 否則直接返回結果（用於向後相容）
       return result;
 
-      console.warn('[Shopline Category Manager] [CHANGE 2] Category not found:', categoryId);
-      return null;
+      return result;
     }
 
     initialize() {
