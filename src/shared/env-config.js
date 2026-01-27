@@ -30,8 +30,9 @@ const FEATURES = {
   /**
    * 調試 API - 只在開發構建中啟用
    *
-   * 生產構建中：window.debugCategoryManager === undefined
-   * 開發構建中：window.debugCategoryManager 包含調試方法
+   * Phase 3.2: categoryManager 不再暴露於全局
+   * 調試通過 chrome.runtime.sendMessage() 進行
+   * 此標誌控制是否啟用詳細日誌和調試功能
    */
   DEBUG_APIS: ENV.NODE_ENV === 'development',
 
@@ -42,7 +43,8 @@ const FEATURES = {
 
   /**
    * 內部狀態暴露 - 只在開發環境啟用
-   * 禁止生產環境暴露 window.categoryManager
+   * Phase 3.2: categoryManager 不再暴露於全局
+   * 此標誌現已廢棄，保留用於向後兼容性
    */
   EXPOSE_INTERNAL_STATE: ENV.NODE_ENV === 'development',
 };
