@@ -8,8 +8,6 @@
  * 生產構建：NODE_ENV=production npm run build:prod
  */
 
-const path = require('path');
-
 /**
  * 取得當前環境
  */

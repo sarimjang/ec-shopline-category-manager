@@ -547,8 +547,6 @@
 
       // 否則直接返回結果（用於向後相容）
       return result;
-
-      return result;
     }
 
     initialize() {
@@ -1905,7 +1903,6 @@
 
         // 📍 第5步：觸發 AngularJS 更新
         console.log('[STEP 5] 觸發 AngularJS 更新...');
-        let applyError = null;
         try {
           if (this.scope.$apply) {
             // 保護：檢查是否已在 digest 中
@@ -1922,7 +1919,6 @@
         } catch (e) {
           // $apply 失敗時記錄但不中斷，API 調用必須繼續執行
           console.warn('[Shopline Category Manager] ⚠️  $apply 觸發異常（非致命）:', e.message);
-          applyError = e;
         }
 
         // 📍 第6步：驗證移動結果
