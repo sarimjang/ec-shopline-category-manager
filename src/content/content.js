@@ -2454,9 +2454,8 @@
     };
   }
 
-  // 建立 CategoryManager 實例並初始化
+  // 建立 CategoryManager 實例並初始化（私密，不暴露於全局）
   const manager = new CategoryManager(scope);
-  window._scm_categoryManager = manager;
   console.log('[content.js] CategoryManager initialized with scope');
 
   // 初始化 UI 和事件監聽
@@ -2470,7 +2469,7 @@
     console.log('[content.js] Buttons attached to categories');
   }
 
-  // 保持向後兼容性
-  window._scm_manager = manager;
-  console.log('[content.js] Content script fully initialized');
+  // 注意：不再暴露 window._scm_categoryManager 或 window._scm_manager
+  // CategoryManager 保持為私密狀態，只通過內部事件與 popup 通信
+  console.log('[content.js] Content script fully initialized (categoryManager is private)');
 })();
