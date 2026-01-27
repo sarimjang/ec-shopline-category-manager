@@ -113,7 +113,10 @@ chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
         break;
 
       case 'importData':
-        handleImportData(request, sendResponse);
+
+      case 'validateImportData':
+        handleValidateImportData(request, sendResponse);
+        break;
         break;
 
       case 'recordCategoryMove':
@@ -480,3 +483,115 @@ chrome.action.onClicked.addListener(function(_tab) {
   logger.log('Extension icon clicked');
   // Popup is handled automatically by default_popup in manifest
 });
+
+/**
+ * Handle validateImportData request
+ * Validates imported data structure, schema, and detects conflicts
+ */
+function handleValidateImportData(request, sendResponse) {
+  const jsonString = request.jsonString;
+  
+  if (!jsonString) {
+    sendResponse({
+      success: false,
+      error: 'No JSON data provided for validation'
+    });
+    return;
+  }
+
+  try {
+    // 第一步：驗證 JSON 格式和完整性
+    if (typeof window.ShoplineImportValidator === 'undefined') {
+      logger.error('Import validator not loaded');
+      sendResponse({
+        success: false,
+        error: 'Import validator module not available'
+      });
+      return;
+    }
+
+    const validationResult = window.ShoplineImportValidator.validateImportData(jsonString);
+
+    // 如果驗證失敗，立即返回
+    if (!validationResult.isValid) {
+      logger.log('Import validation failed:', validationResult.errors);
+      sendResponse({
+        success: false,
+        isValid: false,
+        errors: validationResult.errors,
+        warnings: validationResult.warnings,
+        summary: validationResult.summary
+      });
+      return;
+    }
+
+    // 第二步：檢測衝突
+    const importedData = validationResult.data;
+    
+    chrome.storage.local.get(null, function(existingData) {
+      if (chrome.runtime.lastError) {
+        logger.error('Error retrieving existing data for conflict detection:', chrome.runtime.lastError);
+        sendResponse({
+          success: false,
+          error: 'Failed to retrieve existing storage data'
+        });
+        return;
+      }
+
+      try {
+        // 執行衝突檢測
+        if (typeof window.ShoplineConflictDetector === 'undefined') {
+          logger.error('Conflict detector not loaded');
+          sendResponse({
+            success: true,
+            isValid: true,
+            errors: validationResult.errors,
+            warnings: validationResult.warnings,
+            summary: validationResult.summary,
+            conflicts: [],
+            mergeStrategy: null,
+            conflictDetected: false
+          });
+          return;
+        }
+
+        const conflictResult = window.ShoplineConflictDetector.detectConflicts(
+          importedData,
+          existingData
+        );
+
+        logger.log('Conflict detection complete:', conflictResult.summary);
+
+        // 返回完整的驗證和衝突檢測結果
+        sendResponse({
+          success: true,
+          isValid: validationResult.isValid,
+          errors: validationResult.errors,
+          warnings: validationResult.warnings,
+          summary: validationResult.summary,
+          schemaVersion: validationResult.schemaVersion,
+          conflictDetected: conflictResult.hasConflicts,
+          conflicts: conflictResult.conflicts,
+          conflictSummary: conflictResult.summary,
+          mergeStrategy: conflictResult.mergeStrategy,
+          mergedData: conflictResult.mergedData
+        });
+      } catch (error) {
+        logger.error('Error during conflict detection:', error);
+        sendResponse({
+          success: false,
+          error: 'Conflict detection failed: ' + error.message,
+          isValid: validationResult.isValid,
+          errors: validationResult.errors,
+          warnings: validationResult.warnings
+        });
+      }
+    });
+  } catch (error) {
+    logger.error('Error validating import data:', error);
+    sendResponse({
+      success: false,
+      error: 'Import validation failed: ' + error.message
+    });
+  }
+}

@@ -46,7 +46,9 @@
         "shared/constants.js",
         "shared/storage-schema.js",
         "shared/csv-export.js",
-        "shared/export-formats.js"
+        "shared/export-formats.js",
+        "shared/import-validator.js",
+        "shared/conflict-detector.js"
       ],
       "matches": [
         "*://app.shoplineapp.com/*",

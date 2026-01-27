@@ -240,7 +240,190 @@
   /**
    * 處理文件選擇
    */
+
+  /**
+   * 處理文件選擇 - 新的驗證工作流程
+   * 現在會先驗證，顯示衝突，然後要求用戶確認
+   */
   async function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      setButtonLoading('importBtn', true);
+      showStatus('正在驗證匯入檔案...', 'loading');
+
+      // 讀取文件內容
+      const content = await file.text();
+
+      // 發送到背景程序進行驗證
+      const validationResult = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { action: 'validateImportData', jsonString: content },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(response);
+            }
+          }
+        );
+      });
+
+      if (!validationResult.success) {
+        throw new Error(validationResult.error || '驗證失敗');
+      }
+
+      // 檢查是否有驗證錯誤
+      if (!validationResult.isValid) {
+        const errorMessage = formatValidationErrors(validationResult.errors);
+        showStatus('驗證失敗：' + errorMessage, 'error');
+        logger.error('[Popup] Import validation failed:', validationResult.errors);
+        setButtonLoading('importBtn', false);
+        event.target.value = '';
+        return;
+      }
+
+      // 顯示驗證結果摘要
+      const summary = validationResult.summary;
+      const summaryText = '移動: ' + summary.totalMoves + ' (' + summary.moveRecords + ' 筆記錄)\\n搜尋: ' + summary.searchQueries + ' 個查詢\\n錯誤: ' + summary.errorRecords + ' 筆錯誤日誌';
+
+      // 檢查是否有衝突
+      if (validationResult.conflictDetected) {
+        const conflictSummary = validationResult.conflictSummary;
+        const conflictText = formatConflictSummary(conflictSummary);
+
+        const confirmMessage = '匯入資料驗證成功，但偵測到以下衝突:\\n' + conflictText + '\\n\\n資料摘要:\\n' + summaryText + '\\n\\n合併策略:\\n' + formatMergeStrategy(validationResult.mergeStrategy) + '\\n\\n要繼續匯入嗎?';
+
+        if (!confirm(confirmMessage)) {
+          showStatus('匯入已取消', 'error');
+          logger.log('[Popup] Import cancelled by user');
+          setButtonLoading('importBtn', false);
+          event.target.value = '';
+          return;
+        }
+
+        // 使用合併後的資料
+        showStatus('正在匯入並合併資料...', 'loading');
+        await performImport(validationResult.mergedData);
+      } else {
+        // 沒有衝突，直接匯入
+        const confirmMessage = '匯入資料驗證成功，準備匯入:\\n' + summaryText + '\\n\\n確認匯入嗎?';
+
+        if (!confirm(confirmMessage)) {
+          showStatus('匯入已取消', 'error');
+          logger.log('[Popup] Import cancelled by user');
+          setButtonLoading('importBtn', false);
+          event.target.value = '';
+          return;
+        }
+
+        showStatus('正在匯入資料...', 'loading');
+        await performImport(validationResult.data);
+      }
+
+      // 刷新顯示
+      await loadAndDisplayStats();
+      showStatus('匯入成功', 'success');
+      logger.log('[Popup] 匯入成功');
+    } catch (error) {
+      logger.error('[Popup] 匯入失敗:', error);
+      showStatus('匯入失敗：' + error.message, 'error');
+    } finally {
+      setButtonLoading('importBtn', false);
+      // 重置文件輸入
+      event.target.value = '';
+    }
+  }
+
+  /**
+   * 執行實際的資料匯入
+   */
+  async function performImport(data) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { action: 'importData', data: data },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response.success) {
+            reject(new Error(response.message || '匯入失敗'));
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * 格式化驗證錯誤訊息
+   */
+  function formatValidationErrors(errors) {
+    if (!errors || errors.length === 0) {
+      return '未知錯誤';
+    }
+
+    const firstError = errors[0];
+    if (errors.length === 1) {
+      return firstError.message;
+    }
+
+    return firstError.message + ' (及其他 ' + (errors.length - 1) + ' 個錯誤)';
+  }
+
+  /**
+   * 格式化衝突摘要
+   */
+  function formatConflictSummary(summary) {
+    const conflicts = [];
+
+    if (summary.duplicateMoves > 0) {
+      conflicts.push('  - 重複的移動: ' + summary.duplicateMoves);
+    }
+    if (summary.duplicateSearches > 0) {
+      conflicts.push('  - 重複的搜尋: ' + summary.duplicateSearches);
+    }
+    if (summary.duplicateErrors > 0) {
+      conflicts.push('  - 重複的錯誤: ' + summary.duplicateErrors);
+    }
+    if (summary.versionMismatches > 0) {
+      conflicts.push('  - 版本不匹配: ' + summary.versionMismatches);
+    }
+    if (summary.dataLossRisks > 0) {
+      conflicts.push('  - 資料遺失風險: ' + summary.dataLossRisks);
+    }
+
+    return conflicts.length > 0 ? conflicts.join('\\n') : '沒有檢測到衝突';
+  }
+
+  /**
+   * 格式化合併策略
+   */
+  function formatMergeStrategy(strategy) {
+    if (!strategy) {
+      return '無';
+    }
+
+    const strategies = [];
+
+    if (strategy.moves) {
+      strategies.push('  - 移動: ' + strategy.moves);
+    }
+    if (strategy.searches) {
+      strategies.push('  - 搜尋: ' + strategy.searches);
+    }
+    if (strategy.errors) {
+      strategies.push('  - 錯誤: ' + strategy.errors);
+    }
+    if (strategy.stats) {
+      strategies.push('  - 統計: ' + strategy.stats);
+    }
+
+    return strategies.length > 0 ? strategies.join('\\n') : '無';
+  }
     const file = event.target.files[0];
     if (!file) {
       return;
