@@ -182,6 +182,23 @@
       this.stats.totalTimeSaved += result.timeSaved;
       this.saveStats();
 
+      // 通知 Service Worker 記錄此次移動
+      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage(
+          {
+            action: 'recordCategoryMove',
+            timeSaved: result.timeSaved
+          },
+          response => {
+            if (chrome.runtime.lastError) {
+              console.warn('[TimeSavingsTracker] Failed to record move in service worker:', chrome.runtime.lastError);
+            } else {
+              console.log('[TimeSavingsTracker] Move recorded in service worker');
+            }
+          }
+        );
+      }
+
       return {
         thisMove: result.timeSaved,
         totalMoves: this.stats.totalMoves,
