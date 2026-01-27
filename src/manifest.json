@@ -29,8 +29,11 @@
         "*://app.shopline.app/admin/*/categories*"
       ],
       "js": [
+        "content/init.js",
+        "shared/storage.js",
         "content/content.js"
-      ]
+      ],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
