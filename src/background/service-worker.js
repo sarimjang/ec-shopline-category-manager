@@ -81,7 +81,7 @@ chrome.contextMenus.remove('shopline-export', () => {
 /**
  * Handle context menu clicks
  */
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener((info, _tab) => {
   if (info.menuItemId === 'shopline-export') {
     logger.log('Export menu clicked (Phase 2 feature)');
   }
@@ -168,7 +168,7 @@ chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
 /**
  * Handle getCategories request
  */
-function handleGetCategories(request, sendResponse) {
+function handleGetCategories(_request, sendResponse) {
   chrome.storage.local.get(['categories'], function(result) {
     sendResponse({
       success: true,
@@ -193,14 +193,54 @@ function handleUpdateCategories(request, sendResponse) {
 
 /**
  * Handle exportData request
+ * Retrieves all storage data for export
+ * Includes: stats, move history, search history, error log, and any other stored data
  */
 function handleExportData(_request, sendResponse) {
   chrome.storage.local.get(null, function(result) {
-    sendResponse({
+    if (chrome.runtime.lastError) {
+      logger.error('Error retrieving data for export:', chrome.runtime.lastError);
+      sendResponse({
+        success: false,
+        error: 'Failed to retrieve storage data',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Prepare export data with metadata
+    const exportData = {
       success: true,
-      data: result,
-      timestamp: new Date().toISOString()
-    });
+      timestamp: new Date().toISOString(),
+      version: '1.0',
+      data: {
+        stats: result.categoryMoveStats || {
+          totalMoves: 0,
+          totalTimeSaved: 0,
+          lastReset: null
+        },
+        moveHistory: result.moveHistory || [],
+        searchHistory: result.searchHistory || [],
+        errorLog: result.errorLog || [],
+        // Include any additional data keys
+        additionalData: Object.keys(result).reduce((acc, key) => {
+          if (!['categoryMoveStats', 'moveHistory', 'searchHistory', 'errorLog'].includes(key)) {
+            acc[key] = result[key];
+          }
+          return acc;
+        }, {})
+      },
+      summary: {
+        totalMoves: (result.categoryMoveStats || {}).totalMoves || 0,
+        totalTimeSaved: (result.categoryMoveStats || {}).totalTimeSaved || 0,
+        moveRecords: (result.moveHistory || []).length,
+        searchQueries: (result.searchHistory || []).length,
+        errorRecords: (result.errorLog || []).length
+      }
+    };
+
+    logger.log('Export data prepared:', exportData.summary);
+    sendResponse(exportData);
   });
 }
 
@@ -249,7 +289,7 @@ function handleRecordCategoryMove(request, sendResponse) {
  * Handle getStats request
  * Retrieve current stats
  */
-function handleGetStats(request, sendResponse) {
+function handleGetStats(_request, sendResponse) {
   chrome.storage.local.get(['categoryMoveStats'], function(result) {
     const stats = result.categoryMoveStats || {
       totalMoves: 0,
@@ -268,7 +308,7 @@ function handleGetStats(request, sendResponse) {
  * Handle resetStats request
  * Reset statistics to zero
  */
-function handleResetStats(request, sendResponse) {
+function handleResetStats(_request, sendResponse) {
   const newStats = {
     totalMoves: 0,
     totalTimeSaved: 0,
@@ -288,7 +328,7 @@ function handleResetStats(request, sendResponse) {
  * Handle getSearchHistory request
  * Retrieve search query history from storage
  */
-function handleGetSearchHistory(request, sendResponse) {
+function handleGetSearchHistory(_request, sendResponse) {
   chrome.storage.local.get(['searchHistory'], function(result) {
     const history = result.searchHistory || [];
     logger.log('Search history retrieved:', history.length, 'queries');
@@ -375,7 +415,7 @@ function handleClassifyError(request, sendResponse) {
  * Handle getErrorLog request
  * Retrieve error log from storage
  */
-function handleGetErrorLog(request, sendResponse) {
+function handleGetErrorLog(_request, sendResponse) {
   chrome.storage.local.get(['errorLog'], function(result) {
     const errorLog = result.errorLog || [];
     logger.log('Error log retrieved:', errorLog.length, 'errors');
@@ -422,7 +462,7 @@ function handleValidateCategoryPath(request, sendResponse) {
  * Handle getMoveHistory request
  * Retrieve individual move records
  */
-function handleGetMoveHistory(request, sendResponse) {
+function handleGetMoveHistory(_request, sendResponse) {
   chrome.storage.local.get(['moveHistory'], function(result) {
     const moveHistory = result.moveHistory || [];
     logger.log('Move history retrieved:', moveHistory.length, 'moves');

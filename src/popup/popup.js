@@ -166,40 +166,65 @@
 
   /**
    * 處理匯出按鈕
+   * 支援 JSON 格式匯出，包含所有統計、移動歷史、搜尋歷史和錯誤日誌
    */
   async function handleExport() {
     try {
       setButtonLoading('exportBtn', true);
+      showStatus('正在準備匯出...', 'loading');
 
+      // 收集所有需要匯出的數據
       const stats = await storageManager.getStats();
       const moveHistory = await storageManager.getMoveHistory();
       const searchHistory = await storageManager.getSearchHistory();
+      const errorLog = await storageManager.getErrorLog();
 
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        stats: stats,
+      // 使用新的匯出格式庫創建匯出數據
+      if (!window.ShoplineExportFormats) {
+        throw new Error('匯出格式庫未加載');
+      }
+
+      // 創建完整的匯出數據結構
+      const fullExportData = {
+        categoryMoveStats: stats,
         moveHistory: moveHistory,
-        searchHistory: searchHistory
+        searchHistory: searchHistory,
+        errorLog: errorLog
       };
 
-      const json = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      // 生成 JSON 匯出
+      const jsonExportData = window.ShoplineExportFormats.createJsonExport(fullExportData);
+      const jsonExport = window.ShoplineExportFormats.generateJsonExport(jsonExportData);
 
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'shopline-category-stats-' + new Date().toISOString().split('T')[0] + '.json';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // 觸發下載
+      const downloadSuccess = window.ShoplineExportFormats.triggerDownload(
+        jsonExport.blob,
+        jsonExport.filename
+      );
 
-      URL.revokeObjectURL(url);
+      if (downloadSuccess) {
+        // 記錄匯出到歷史
+        const exportEntry = {
+          timestamp: new Date().toISOString(),
+          format: 'JSON',
+          filename: jsonExport.filename,
+          fileSize: jsonExport.size,
+          summary: window.ShoplineExportFormats.getExportSummary(jsonExportData)
+        };
 
-      showStatus('統計已匯出', 'success');
-      logger.log('[Popup] 統計已匯出');
+        await storageManager.addToHistory('exports', exportEntry);
+
+        // 顯示成功訊息及摘要
+        const summary = exportEntry.summary;
+        const message = `匯出成功！移動: ${summary.totalMoves}, 搜尋: ${summary.searchQueries}, 錯誤: ${summary.errorRecords}`;
+        showStatus(message, 'success');
+        logger.log('[Popup] JSON 匯出成功:', exportEntry);
+      } else {
+        showStatus('匯出失敗：無法觸發下載', 'error');
+      }
     } catch (error) {
       logger.error('[Popup] 匯出失敗:', error);
-      showStatus('匯出失敗', 'error');
+      showStatus('匯出失敗：' + error.message, 'error');
     } finally {
       setButtonLoading('exportBtn', false);
     }
