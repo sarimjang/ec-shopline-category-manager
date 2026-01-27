@@ -143,6 +143,29 @@ function runTests() {
         });
       }
     },
+    // ========================================
+    // Phase 3.2: Remove categoryManager Exposure
+    // ========================================
+    {
+      name: 'content.js does not expose _scm_categoryManager (Phase 3.2)',
+      fn: () => {
+        const contentPath = path.join(__dirname, '../src/content/content.js');
+        const content = fs.readFileSync(contentPath, 'utf8');
+        // Phase 3.2: 移除了 window._scm_categoryManager 暴露
+        const hasExposure = /^\s*window\._scm_categoryManager\s*=/.test(content);
+        assert(!hasExposure, 'should NOT expose _scm_categoryManager (Phase 3.2 removed it)');
+      }
+    },
+    {
+      name: 'content.js does not expose _scm_manager (Phase 3.2)',
+      fn: () => {
+        const contentPath = path.join(__dirname, '../src/content/content.js');
+        const content = fs.readFileSync(contentPath, 'utf8');
+        // Phase 3.2: 移除了 window._scm_manager 暴露
+        const hasExposure = /^\s*window\._scm_manager\s*=/.test(content);
+        assert(!hasExposure, 'should NOT expose _scm_manager (Phase 3.2 removed it)');
+      }
+    },
     {
       name: 'Phase 3.1 documentation exists',
       fn: () => {
