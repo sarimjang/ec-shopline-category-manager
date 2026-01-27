@@ -2421,12 +2421,57 @@
     console.error('[content.js] AngularJS not found after waiting');
     return;
   }
-  
-  // 建立 CategoryManager 實例
-  window._scm_manager = new CategoryManager();
-  console.log('[content.js] CategoryManager initialized');
-  
-  // 在控制台中暴露管理器以便除錯
-  window._scm_categoryManager = window._scm_manager;
+
+  // Issue #2: 從 AngularJS 中獲取 scope 對象並初始化 CategoryManager
+  let scope = null;
+  try {
+    const ng = window._scm_getAngular();
+    if (ng && ng.element) {
+      // 嘗試從樹容器獲取 scope
+      const treeContainer = document.querySelector('.angular-ui-tree');
+      if (treeContainer) {
+        scope = ng.element(treeContainer).scope();
+        console.log('[content.js] Scope obtained from tree container');
+      }
+
+      // 如果失敗，嘗試從 body 獲取
+      if (!scope) {
+        scope = ng.element(document.body).scope();
+        console.log('[content.js] Scope obtained from body');
+      }
+    }
+  } catch (error) {
+    console.warn('[content.js] Failed to get scope from AngularJS:', error);
+  }
+
+  // 如果無法獲取 scope，創建默認的 scope 對象
+  if (!scope) {
+    console.warn('[content.js] Creating dummy scope object');
+    scope = {
+      categories: [],
+      posCategories: [],
+      $id: 'dummy',
+      $apply: () => {}
+    };
+  }
+
+  // 建立 CategoryManager 實例並初始化
+  const manager = new CategoryManager(scope);
+  window._scm_categoryManager = manager;
+  console.log('[content.js] CategoryManager initialized with scope');
+
+  // 初始化 UI 和事件監聽
+  if (typeof manager.injectUI === 'function') {
+    manager.injectUI();
+    console.log('[content.js] UI injected');
+  }
+
+  if (typeof manager.attachButtonsToCategories === 'function') {
+    manager.attachButtonsToCategories();
+    console.log('[content.js] Buttons attached to categories');
+  }
+
+  // 保持向後兼容性
+  window._scm_manager = manager;
   console.log('[content.js] Content script fully initialized');
 })();
