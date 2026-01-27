@@ -47,14 +47,40 @@
   console.log('[Injected] AngularJS access functions initialized');
 
   // ============================================
+  // 讀取 nonce 並驗證完整性
+  // ============================================
+
+  /**
+   * 從 script 標籤中提取 nonce
+   * 這是跨世界通信的安全令牌
+   */
+  function getNonceFromScriptTag() {
+    // 查找當前加載的 script 元素（本文件的來源）
+    const scripts = document.querySelectorAll('script');
+    for (let script of scripts) {
+      if (script.dataset.nonce) {
+        return script.dataset.nonce;
+      }
+    }
+    console.warn('[Injected] No nonce found in script tags');
+    return null;
+  }
+
+  const nonce = getNonceFromScriptTag();
+  console.log('[Injected] Nonce extracted from script tag:', nonce ? 'present' : 'missing');
+
+  // ============================================
   // 廣播初始化完成事件
   // ============================================
 
   window.dispatchEvent(new CustomEvent('categoryManagerReady', {
-    detail: { timestamp: new Date().toISOString() }
+    detail: {
+      timestamp: new Date().toISOString(),
+      nonce: nonce
+    }
   }));
 
-  console.log('[Injected] categoryManagerReady event broadcasted');
+  console.log('[Injected] categoryManagerReady event broadcasted with nonce');
 
   // ============================================
   // (舊) CategoryManager 類別定義 (保留供參考)
@@ -312,30 +338,22 @@
       const $rootScope = injector.get('$rootScope');
       const $http = injector.get('$http');
 
-      // 初始化 CategoryManager
-      window.categoryManager = new CategoryManager(null, $http, $rootScope);
+      // 初始化 CategoryManager（私密，不暴露於全局）
+      const categoryManager = new CategoryManager(null, $http, $rootScope);
 
       console.log('[Injected] CategoryManager successfully initialized');
 
-      // 設置測試/調試接口
-      window.debugCategoryManager = {
-        moveCategory: (categoryId, newParent, newPosition) => {
-          return window.categoryManager.moveCategory(categoryId, newParent, newPosition);
-        },
-        getStats: async () => {
-          return await window.categoryManager.storageManager.getStats();
-        },
-        recordMove: (timeSaved) => {
-          return window.categoryManager.storageManager.addMove(timeSaved || 5);
-        }
-      };
+      // 注意：不再暴露 window.categoryManager 或 window.debugCategoryManager
+      // 所有通信現在通過消息傳遞（messaging）進行
+      // 若需要測試，請使用瀏覽器控制台的 chrome.runtime.sendMessage() 命令
 
-      console.log('[Injected] Debug interface available at window.debugCategoryManager');
-
-      // 廣播初始化完成事件
+      // 廣播初始化完成事件（包含 nonce 作為安全驗證）
       window.dispatchEvent(
         new CustomEvent('categoryManagerReady', {
-          detail: { timestamp: new Date().toISOString() }
+          detail: {
+            timestamp: new Date().toISOString(),
+            nonce: nonce
+          }
         })
       );
     } catch (error) {
