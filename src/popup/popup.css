@@ -1,4 +1,4 @@
-/* Popup UI Styles - Statistics Display */
+/* Popup UI Styles - Shopline Category Manager Statistics Panel */
 
 * {
   margin: 0;
@@ -7,523 +7,196 @@
 }
 
 body {
-  width: 300px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f9fafb;
-  color: #111827;
-  min-height: 300px;
+  width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", sans-serif;
+  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+  color: #1a1a1a;
+  min-height: 400px;
 }
 
-.container {
-  padding: 16px;
+.popup-container {
+  padding: 20px;
 }
 
-h1 {
-  font-size: 16px;
-  margin-bottom: 16px;
+/* Header */
+.header {
+  margin-bottom: 20px;
   text-align: center;
-  color: #111827;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 12px;
 }
 
-.stats {
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Statistics Panel */
+.stats-panel {
   background: white;
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+}
+
+.stats-panel h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
   margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .stat-item {
   display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.stat-item:last-child {
-  border-bottom: none;
-}
-
-.label {
-  font-weight: 500;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.value {
-  font-weight: 700;
-  color: #1f2937;
-  font-size: 13px;
-}
-
-.buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.btn {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary {
-  background: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-  background: #f3f4f6;
-}
-
-.btn-secondary:active {
-  transform: scale(0.98);
-}
-
-.status {
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 4px;
-  text-align: center;
-  min-height: 20px;
-  display: none;
-}
-
-.status:not(:empty) {
-  display: block;
-}
-
-.status.success {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status.error {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-/* ============================================================================
-   SEARCH SECTION (Stage 5)
-   ============================================================================ */
-
-.popup-section {
-  background: white;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: #f8f9fa;
   border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
-}
-
-.popup-section h3 {
-  font-size: 14px;
-  margin-bottom: 12px;
-  color: #111827;
-  font-weight: 600;
-}
-
-.popup-section h4 {
-  font-size: 12px;
-  margin-top: 12px;
-  margin-bottom: 8px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-bottom: 12px;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.results-list {
-  max-height: 150px;
-  overflow-y: auto;
-  margin-bottom: 12px;
-}
-
-.result-item {
-  padding: 8px;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 12px;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.result-item:hover {
-  background: #f9fafb;
-}
-
-.result-item:last-child {
-  border-bottom: none;
-}
-
-.no-results {
-  padding: 12px;
+  border-left: 4px solid #1976d2;
   text-align: center;
-  color: #9ca3af;
-  font-size: 12px;
-  font-style: italic;
+  transition: all 0.3s ease;
 }
 
-.history-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
+.stat-item:hover {
+  background: #e7f1fd;
+  box-shadow: 0 2px 6px rgba(25, 118, 210, 0.1);
 }
 
-.history-list {
-  max-height: 100px;
-  overflow-y: auto;
-  margin-bottom: 8px;
+.stat-item.highlight {
+  border-left-color: #10b981;
+  background: #ecfdf5;
 }
 
-.history-item {
-  padding: 6px 8px;
+.stat-item.warning {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.stat-label {
   font-size: 11px;
-  color: #6b7280;
-  background: #f9fafb;
-  border-radius: 4px;
-  margin-bottom: 4px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.history-item:hover {
-  background: #f3f4f6;
-}
-
-.btn-small {
-  padding: 6px 10px;
-  font-size: 11px;
-  width: 100%;
-}
-
-/* ============================================================================
-   ERROR SECTION (Stage 6)
-   ============================================================================ */
-
-.error-list {
-  max-height: 200px;
-  overflow-y: auto;
-  margin-bottom: 12px;
-}
-
-.error-item {
-  padding: 8px;
-  border-left: 3px solid;
-  margin-bottom: 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  background: #fefefe;
-}
-
-.error-item .error-time {
-  display: block;
-  color: #9ca3af;
-  font-size: 10px;
-  margin-bottom: 4px;
-}
-
-.error-item .error-type {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-weight: 600;
-  font-size: 10px;
-  margin-right: 6px;
-  color: white;
-}
-
-.error-item .error-message {
-  display: block;
-  color: #374151;
-  margin-top: 4px;
-}
-
-/* Error type colors */
-.error-network {
-  border-left-color: #ef4444;
-  background: #fef2f2;
-}
-
-.error-network .error-type {
-  background: #ef4444;
-}
-
-.error-api {
-  border-left-color: #f97316;
-  background: #fff7ed;
-}
-
-.error-api .error-type {
-  background: #f97316;
-}
-
-.error-validation {
-  border-left-color: #eab308;
-  background: #fefce8;
-}
-
-.error-validation .error-type {
-  background: #eab308;
-}
-
-.error-scope {
-  border-left-color: #a855f7;
-  background: #faf5ff;
-}
-
-.error-scope .error-type {
-  background: #a855f7;
-}
-
-.error-unknown {
-  border-left-color: #6b7280;
-  background: #f9fafb;
-}
-
-.error-unknown .error-type {
-  background: #6b7280;
-}
-
-.no-errors {
-  padding: 16px;
-  text-align: center;
-  color: #10b981;
-  font-size: 12px;
   font-weight: 500;
-}
-
-/* ============================================================================
-   VALIDATION SECTION (Stage 7)
-   ============================================================================ */
-
-.validation-steps {
-  margin-bottom: 12px;
-}
-
-.validation-step {
-  display: flex;
-  align-items: center;
-  padding: 8px;
+  color: #6c757d;
   margin-bottom: 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.validation-step .step-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+.stat-value {
+  font-size: 18px;
   font-weight: 700;
-  font-size: 11px;
-  margin-right: 10px;
-  flex-shrink: 0;
+  color: #1a1a1a;
 }
 
-.validation-step .step-label {
-  flex: 1;
-  color: #374151;
-  font-weight: 500;
-}
-
-.validation-step .step-status {
-  font-size: 16px;
-  margin-left: 8px;
-}
-
-/* Step status states */
-.validation-step.pending {
-  background: #f9fafb;
-}
-
-.validation-step.pending .step-number {
-  background: #e5e7eb;
-  color: #9ca3af;
-}
-
-.validation-step.running {
-  background: #dbeafe;
-  border: 1px solid #3b82f6;
-}
-
-.validation-step.running .step-number {
-  background: #3b82f6;
-  color: white;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.validation-step.success {
-  background: #d1fae5;
-}
-
-.validation-step.success .step-number {
-  background: #10b981;
-  color: white;
-}
-
-.validation-step.error {
-  background: #fee2e2;
-}
-
-.validation-step.error .step-number {
-  background: #ef4444;
-  color: white;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.status-message {
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  text-align: center;
-  font-weight: 500;
-  margin-top: 8px;
-}
-
-.status-message.idle {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.status-message.running {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.status-message.success {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-message.error {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.no-validation {
-  padding: 16px;
-  text-align: center;
-  color: #9ca3af;
-  font-size: 12px;
-  font-style: italic;
-}
-
-/* ============================================================================
-   TIME TRACKING SECTION (Stage 8)
-   ============================================================================ */
-
-.time-summary-grid {
+/* Controls Panel */
+.controls-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 16px;
 }
 
-.time-summary-item {
-  display: flex;
-  flex-direction: column;
-  background: #f9fafb;
-  padding: 10px;
-  border-radius: 6px;
-  border-left: 3px solid #3b82f6;
-}
-
-.time-summary-item .label {
-  font-size: 11px;
-  color: #6b7280;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.time-summary-item .value {
-  font-size: 14px;
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
-  color: #111827;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.move-history {
-  margin: 12px 0;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
+.btn:active {
+  transform: scale(0.98);
 }
 
-.move-history h4 {
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: white;
+  color: #495057;
+  border: 1.5px solid #dee2e6;
+  font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+/* Status Message Display */
+.status {
   font-size: 12px;
-  margin-bottom: 8px;
-  color: #6b7280;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  min-height: 0;
+  display: none;
   font-weight: 500;
+  animation: slideIn 0.3s ease;
 }
 
-.recent-moves-list {
-  max-height: 120px;
-  overflow-y: auto;
-  margin-bottom: 12px;
-}
-
-.move-item {
-  padding: 8px;
-  background: #fafafa;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 11px;
-  color: #374151;
-}
-
-.move-item:last-child {
-  border-bottom: none;
-}
-
-.move-item-time {
-  color: #9ca3af;
-  font-size: 10px;
+.status:not(:empty) {
   display: block;
-  margin-bottom: 2px;
 }
 
-.move-item-detail {
-  color: #111827;
-  font-weight: 500;
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.time-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
+.status.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
 }
 
-.time-actions .btn {
-  flex: 1;
-  font-size: 12px;
-  padding: 6px 8px;
+.status.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }
+
+.status.loading {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+

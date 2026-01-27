@@ -1,412 +1,176 @@
 /**
- * Popup UI Script - Displays category move statistics and provides controls
+ * Popup UI Script - Shopline Category Manager Statistics Panel
+ * Displays category move statistics and provides extension controls
  */
+
 (function() {
   'use strict';
 
   const logger = window.ShoplineLogger || console;
   let storageManager = null;
-  let searchDebounceTimer = null;
-  const SEARCH_DEBOUNCE_MS = 300;
+  let autoRefreshInterval = null;
+  const AUTO_REFRESH_MS = 2000; // 每 2 秒更新一次統計
+  const STATUS_DISPLAY_MS = 3000; // 狀態訊息顯示 3 秒
 
-  const mockCategories = [
-    { id: 1, name: '服裝', path: '服裝' },
-    { id: 2, name: '鞋類', path: '服裝 > 鞋類' },
-    { id: 3, name: '電子產品', path: '電子產品' },
-    { id: 4, name: '手機', path: '電子產品 > 手機' },
-    { id: 5, name: '配件', path: '電子產品 > 配件' },
-    { id: 6, name: '家居用品', path: '家居用品' },
-    { id: 7, name: '廚房', path: '家居用品 > 廚房' },
-    { id: 8, name: '浴室', path: '家居用品 > 浴室' },
-  ];
-
-  const VALIDATION_STEPS = [
-    { number: 1, label: 'Input validation' },
-    { number: 2, label: 'Pre-flight check' },
-    { number: 3, label: 'Scope verification' },
-    { number: 4, label: 'Tree validation' },
-    { number: 5, label: 'Permission check' },
-    { number: 6, label: 'API request' },
-    { number: 7, label: 'Response verification' },
-    { number: 8, label: 'Post-move verification' }
-  ];
-
+  /**
+   * 初始化彈出窗口
+   */
   document.addEventListener('DOMContentLoaded', initializePopup);
 
   async function initializePopup() {
-    logger.log('[Popup] Initializing');
-    storageManager = new window.StorageManager();
-    await loadStats();
-    await loadSearchHistory();
-    await loadErrorLog();
-    await loadTimeSummary();
-    initValidationSteps();
+    logger.log('[Popup] 正在初始化彈出窗口');
 
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-    document.getElementById('settingsBtn').addEventListener('click', handleSettings);
-    document.getElementById('searchInput').addEventListener('input', handleSearchInput);
-    document.getElementById('clearHistory').addEventListener('click', handleClearHistory);
-    document.getElementById('clearErrors').addEventListener('click', handleClearErrors);
-    document.getElementById('exportStats').addEventListener('click', handleExportStats);
-    document.getElementById('undoLastMove').addEventListener('click', handleUndoLastMove);
-
-    window.addEventListener('categoryStats', (e) => {
-      updateUI(e.detail.stats);
-    });
-  }
-
-  async function loadStats() {
     try {
-      const stats = await storageManager.getStats();
-      updateUI(stats);
+      // 初始化存儲管理器
+      storageManager = new window.StorageManager();
+
+      // 綁定按鈕事件
+      document.getElementById('resetStatsBtn').addEventListener('click', handleResetStats);
+      document.getElementById('exportBtn').addEventListener('click', handleExport);
+      document.getElementById('importBtn').addEventListener('click', handleImport);
+      document.getElementById('settingsBtn').addEventListener('click', handleSettings);
+      document.getElementById('importFile').addEventListener('change', handleFileImport);
+
+      // 初次加載統計
+      await loadAndDisplayStats();
+
+      // 啟動自動更新
+      startAutoRefresh();
+
+      logger.log('[Popup] 彈出窗口初始化完成');
     } catch (error) {
-      logger.error('[Popup] Error loading stats:', error);
+      logger.error('[Popup] 初始化失敗:', error);
+      showStatus('初始化失敗', 'error');
     }
   }
 
-  function updateUI(stats) {
-    const { totalMoves = 0, totalTimeSaved = 0 } = stats;
+  /**
+   * 加載並顯示統計數據
+   */
+  async function loadAndDisplayStats() {
+    try {
+      const stats = await storageManager.getStats();
+      updateStatsDisplay(stats);
+    } catch (error) {
+      logger.error('[Popup] 加載統計失敗:', error);
+      showStatus('無法加載統計', 'error');
+    }
+  }
+
+  /**
+   * 更新統計數據顯示
+   * @param {Object} stats - 統計對象
+   */
+  function updateStatsDisplay(stats) {
+    const { totalMoves = 0, totalTimeSaved = 0, lastReset = null } = stats;
+
+    // 總移動次數
     document.getElementById('totalMoves').textContent = totalMoves;
-    const minutes = Math.floor(totalTimeSaved / 60);
-    const seconds = Math.floor(totalTimeSaved % 60);
-    document.getElementById('timeSaved').textContent = minutes + ' min ' + seconds + ' sec';
-    const avgSeconds = totalMoves > 0 ? Math.floor(totalTimeSaved / totalMoves) : 0;
-    document.getElementById('avgTime').textContent = avgSeconds + ' sec';
-  }
 
-  async function handleReset() {
-    if (confirm('Reset all statistics?')) {
-      try {
-        const stats = await storageManager.resetStats();
-        updateUI(stats);
-        showStatus('Stats reset', 'success');
-      } catch (error) {
-        showStatus('Error resetting stats', 'error');
+    // 應用高亮或警告樣式
+    const totalMovesEl = document.getElementById('totalMoves');
+    const totalMovesItem = totalMovesEl.closest('.stat-item');
+    if (totalMovesItem) {
+      totalMovesItem.classList.remove('highlight', 'warning');
+      if (totalMoves > 100) {
+        totalMovesItem.classList.add('highlight');
+      } else if (totalMoves === 0) {
+        totalMovesItem.classList.add('warning');
       }
     }
-  }
 
-  function handleSettings() {
-    showStatus('Settings coming soon', 'error');
-  }
-
-  function handleSearchInput(event) {
-    const query = event.target.value.trim();
-    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      performSearch(query);
-    }, SEARCH_DEBOUNCE_MS);
-  }
-
-  async function performSearch(query) {
-    const resultsContainer = document.getElementById('searchResults');
-    if (!query) {
-      resultsContainer.innerHTML = '';
-      return;
-    }
-
-    await storageManager.recordSearchQuery(query);
-    await loadSearchHistory();
-
-    const lowerQuery = query.toLowerCase();
-    const results = mockCategories.filter(cat =>
-      cat.name.toLowerCase().includes(lowerQuery) ||
-      cat.path.toLowerCase().includes(lowerQuery)
-    );
-
-    displaySearchResults(results);
-  }
-
-  function displaySearchResults(results) {
-    const container = document.getElementById('searchResults');
-    if (results.length === 0) {
-      container.textContent = '';
-      const noResults = document.createElement('div');
-      noResults.className = 'no-results';
-      noResults.textContent = 'No results';
-      container.appendChild(noResults);
-      return;
-    }
-
-    container.innerHTML = '';
-    results.forEach(cat => {
-      const item = document.createElement('div');
-      item.className = 'result-item';
-      item.setAttribute('data-category-id', cat.id);
-      const name = document.createElement('strong');
-      name.textContent = cat.name;
-      const br = document.createElement('br');
-      const path = document.createElement('span');
-      path.style.fontSize = '10px';
-      path.style.color = '#9ca3af';
-      path.textContent = cat.path;
-      item.appendChild(name);
-      item.appendChild(br);
-      item.appendChild(path);
-      container.appendChild(item);
-    });
-  }
-
-  async function loadSearchHistory() {
-    try {
-      const history = await storageManager.getSearchHistory();
-      const recentHistory = history.slice(0, 10);
-      const container = document.getElementById('historyList');
-
-      if (recentHistory.length === 0) {
-        container.innerHTML = '';
-        return;
-      }
-
-      container.innerHTML = '';
-      recentHistory.forEach((query, index) => {
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.textContent = query;
-        item.addEventListener('click', () => {
-          document.getElementById('searchInput').value = recentHistory[index];
-          performSearch(recentHistory[index]);
-        });
-        container.appendChild(item);
-      });
-    } catch (error) {
-      logger.error('[Popup] Error loading search history:', error);
-    }
-  }
-
-  async function handleClearHistory() {
-    if (confirm('Clear all search history?')) {
-      try {
-        await storageManager.setSearchHistory([]);
-        await loadSearchHistory();
-        showStatus('Search history cleared', 'success');
-      } catch (error) {
-        showStatus('Failed to clear history', 'error');
-      }
-    }
-  }
-
-  async function loadErrorLog() {
-    try {
-      const errors = await storageManager.getErrorLog();
-      const recentErrors = errors.slice(0, 10);
-      displayErrorLog(recentErrors);
-    } catch (error) {
-      logger.error('[Popup] Error loading error log:', error);
-    }
-  }
-
-  function displayErrorLog(errors) {
-    const container = document.getElementById('errorList');
-
-    if (errors.length === 0) {
-      container.innerHTML = '';
-      const noErrors = document.createElement('div');
-      noErrors.className = 'no-errors';
-      noErrors.textContent = 'No errors';
-      container.appendChild(noErrors);
-      return;
-    }
-
-    container.innerHTML = '';
-    errors.forEach(err => {
-      const errorType = err.type || 'unknown';
-      const time = new Date(err.timestamp).toLocaleTimeString('zh-TW', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-
-      const item = document.createElement('div');
-      item.className = 'error-item error-' + errorType;
-
-      const timeSpan = document.createElement('span');
-      timeSpan.className = 'error-time';
-      timeSpan.textContent = time;
-
-      const typeSpan = document.createElement('span');
-      typeSpan.className = 'error-type';
-      typeSpan.textContent = errorType.toUpperCase();
-
-      const msgSpan = document.createElement('span');
-      msgSpan.className = 'error-message';
-      msgSpan.textContent = err.message;
-
-      item.appendChild(timeSpan);
-      item.appendChild(typeSpan);
-      item.appendChild(msgSpan);
-      container.appendChild(item);
-    });
-  }
-
-  async function handleClearErrors() {
-    if (confirm('Clear all error logs?')) {
-      try {
-        await storageManager.setErrorLog([]);
-        await loadErrorLog();
-        showStatus('Error log cleared', 'success');
-      } catch (error) {
-        showStatus('Failed to clear errors', 'error');
-      }
-    }
-  }
-
-  function initValidationSteps() {
-    const container = document.getElementById('validationSteps');
-    container.innerHTML = '';
-
-    VALIDATION_STEPS.forEach(step => {
-      const stepDiv = document.createElement('div');
-      stepDiv.className = 'validation-step pending';
-      stepDiv.setAttribute('data-step', step.number);
-
-      const numSpan = document.createElement('span');
-      numSpan.className = 'step-number';
-      numSpan.textContent = step.number;
-
-      const labelSpan = document.createElement('span');
-      labelSpan.className = 'step-label';
-      labelSpan.textContent = step.label;
-
-      const statusSpan = document.createElement('span');
-      statusSpan.className = 'step-status';
-      statusSpan.textContent = '⬜';
-
-      stepDiv.appendChild(numSpan);
-      stepDiv.appendChild(labelSpan);
-      stepDiv.appendChild(statusSpan);
-      container.appendChild(stepDiv);
-    });
-
-    const statusEl = document.getElementById('validationStatus');
-    statusEl.className = 'status-message idle';
-    statusEl.textContent = 'Waiting for move operation...';
-  }
-
-  function updateValidationStep(stepNumber, state) {
-    const stepEl = document.querySelector('.validation-step[data-step="' + stepNumber + '"]');
-    if (!stepEl) return;
-
-    stepEl.classList.remove('pending', 'running', 'success', 'error');
-    stepEl.classList.add(state);
-
-    const statusIcon = { pending: '⬜', running: '⏳', success: '✅', error: '❌' };
-    stepEl.querySelector('.step-status').textContent = statusIcon[state] || '⬜';
-  }
-
-  function displayValidationProgress(moveOperation) {
-    const { currentStep, status, message } = moveOperation;
-    if (currentStep) updateValidationStep(currentStep, status || 'running');
-    const statusEl = document.getElementById('validationStatus');
-    statusEl.className = 'status-message ' + (status || 'running');
-    statusEl.textContent = message || 'Processing...';
-  }
-
-  function simulateValidation() {
-    let step = 1;
-    const interval = setInterval(() => {
-      if (step > 8) {
-        clearInterval(interval);
-        document.getElementById('validationStatus').className = 'status-message success';
-        document.getElementById('validationStatus').textContent = 'Move complete';
-        return;
-      }
-      updateValidationStep(step, 'running');
-      setTimeout(() => { 
-        updateValidationStep(step, 'success');
-        step++;
-      }, 300);
-    }, 600);
-  }
-
-  // ============================================================================
-  // TIME TRACKING SECTION (Stage 8)
-  // ============================================================================
-
-  async function loadTimeSummary() {
-    try {
-      const stats = await storageManager.getStats();
-      const moveHistory = await storageManager.getMoveHistory();
-      displayTimeSummary(stats, moveHistory);
-    } catch (error) {
-      logger.error('[Popup] Error loading time summary:', error);
-    }
-  }
-
-  function displayTimeSummary(stats, moveHistory) {
-    const { totalTimeSaved = 0, totalMoves = 0 } = stats;
-
-    // Format time saved: convert seconds to hours/minutes
+    // 總節省時間（格式化為分鐘）
     const totalMinutes = Math.floor(totalTimeSaved / 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    document.getElementById('dailyTimeSaved').textContent = hours + ' 小時 ' + minutes + ' 分';
+    document.getElementById('totalTime').textContent = totalMinutes + ' 分鐘';
 
-    // Last move time
-    if (moveHistory.length > 0) {
-      const lastMove = moveHistory[moveHistory.length - 1];
-      const lastMoveDate = new Date(lastMove.timestamp);
-      const timeStr = lastMoveDate.toLocaleTimeString('zh-TW', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      document.getElementById('lastMoveTime').textContent = timeStr;
+    // 平均每次時間（秒）
+    const avgSeconds = totalMoves > 0 ? Math.floor(totalTimeSaved / totalMoves) : 0;
+    document.getElementById('avgTime').textContent = avgSeconds + ' 秒';
+
+    // 最後重置時間
+    const resetEl = document.getElementById('lastReset');
+    if (lastReset) {
+      const resetDate = new Date(lastReset);
+      const now = new Date();
+
+      // 計算距離現在的時間差
+      const diffMs = now - resetDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+      if (diffDays > 0) {
+        resetEl.textContent = diffDays + ' 天前';
+      } else if (diffHours > 0) {
+        resetEl.textContent = diffHours + ' 小時前';
+      } else {
+        resetEl.textContent = '剛剛';
+      }
     } else {
-      document.getElementById('lastMoveTime').textContent = '-';
+      resetEl.textContent = '未重置';
     }
-
-    // Total moves today
-    document.getElementById('totalMovesToday').textContent = totalMoves;
-
-    // Display recent moves (last 5)
-    displayRecentMoves(moveHistory.slice(0, 5));
   }
 
-  function displayRecentMoves(moveHistory) {
-    const container = document.getElementById('recentMoves');
+  /**
+   * 啟動自動更新統計
+   */
+  function startAutoRefresh() {
+    // 清除舊的間隔
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+    }
 
-    if (moveHistory.length === 0) {
-      container.innerHTML = '';
-      const noMoves = document.createElement('div');
-      noMoves.style.padding = '12px';
-      noMoves.style.textAlign = 'center';
-      noMoves.style.color = '#9ca3af';
-      noMoves.style.fontSize = '12px';
-      noMoves.textContent = '尚無移動記錄';
-      container.appendChild(noMoves);
+    // 設置新的自動更新間隔
+    autoRefreshInterval = setInterval(async () => {
+      try {
+        const stats = await storageManager.getStats();
+        updateStatsDisplay(stats);
+      } catch (error) {
+        logger.warn('[Popup] 自動更新失敗:', error);
+      }
+    }, AUTO_REFRESH_MS);
+  }
+
+  /**
+   * 停止自動更新
+   */
+  function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  }
+
+  /**
+   * 處理重置統計按鈕
+   */
+  async function handleResetStats() {
+    if (!confirm('確定要清除所有統計資料嗎？此操作無法撤銷。')) {
       return;
     }
 
-    container.innerHTML = '';
-    moveHistory.forEach(move => {
-      const moveDate = new Date(move.timestamp);
-      const timeStr = moveDate.toLocaleTimeString('zh-TW', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
+    try {
+      setButtonLoading('resetStatsBtn', true);
 
-      const item = document.createElement('div');
-      item.className = 'move-item';
+      const stats = await storageManager.resetStats();
+      updateStatsDisplay(stats);
 
-      const timeEl = document.createElement('span');
-      timeEl.className = 'move-item-time';
-      timeEl.textContent = timeStr;
-
-      const detailEl = document.createElement('span');
-      detailEl.className = 'move-item-detail';
-      detailEl.textContent = (move.categoryName || 'Category #' + move.categoryId) +
-        ' → Level ' + (move.targetLevel || '-') +
-        ' (' + move.timeSaved + 's)';
-
-      item.appendChild(timeEl);
-      item.appendChild(detailEl);
-      container.appendChild(item);
-    });
+      showStatus('統計已重置', 'success');
+      logger.log('[Popup] 統計已重置');
+    } catch (error) {
+      logger.error('[Popup] 重置失敗:', error);
+      showStatus('重置失敗', 'error');
+    } finally {
+      setButtonLoading('resetStatsBtn', false);
+    }
   }
 
-  async function handleExportStats() {
+  /**
+   * 處理匯出按鈕
+   */
+  async function handleExport() {
     try {
+      setButtonLoading('exportBtn', true);
+
       const stats = await storageManager.getStats();
       const moveHistory = await storageManager.getMoveHistory();
       const searchHistory = await storageManager.getSearchHistory();
@@ -421,78 +185,137 @@
       const json = JSON.stringify(exportData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'shopline-category-stats-' + new Date().toISOString().split('T')[0] + '.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'shopline-category-stats-' + new Date().toISOString().split('T')[0] + '.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
       URL.revokeObjectURL(url);
 
       showStatus('統計已匯出', 'success');
-      logger.log('[Popup] Stats exported');
+      logger.log('[Popup] 統計已匯出');
     } catch (error) {
-      logger.error('[Popup] Error exporting stats:', error);
+      logger.error('[Popup] 匯出失敗:', error);
       showStatus('匯出失敗', 'error');
+    } finally {
+      setButtonLoading('exportBtn', false);
     }
   }
 
-  async function handleUndoLastMove() {
+  /**
+   * 處理匯入按鈕
+   */
+  function handleImport() {
+    document.getElementById('importFile').click();
+  }
+
+  /**
+   * 處理文件選擇
+   */
+  async function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
+
     try {
-      const moveHistory = await storageManager.getMoveHistory();
+      setButtonLoading('importBtn', true);
+      showStatus('正在匯入...', 'loading');
 
-      if (moveHistory.length === 0) {
-        showStatus('無可撤銷的移動', 'error');
-        return;
+      const content = await file.text();
+      const data = JSON.parse(content);
+
+      // 驗證數據結構
+      if (!data.stats || !data.moveHistory) {
+        throw new Error('無效的匯入文件格式');
       }
 
-      // Remove last move
-      const lastMove = moveHistory.pop();
-
-      // Update move history
-      await storageManager.setMoveHistory(moveHistory);
-
-      // Deduct from stats
-      const stats = await storageManager.getStats();
-      if (stats.totalMoves > 0) {
-        stats.totalMoves -= 1;
-        stats.totalTimeSaved = Math.max(0, stats.totalTimeSaved - lastMove.timeSaved);
+      // 保存匯入的數據
+      await storageManager.setStats(data.stats);
+      await storageManager.setMoveHistory(data.moveHistory);
+      if (data.searchHistory) {
+        await storageManager.setSearchHistory(data.searchHistory);
       }
-      await storageManager.setStats(stats);
 
-      // Refresh UI
-      await loadTimeSummary();
-      await loadStats();
-      showStatus('已撤銷上次移動', 'success');
-      logger.log('[Popup] Last move undone:', lastMove);
+      // 刷新顯示
+      await loadAndDisplayStats();
+
+      showStatus('統計已匯入', 'success');
+      logger.log('[Popup] 統計已匯入');
     } catch (error) {
-      logger.error('[Popup] Error undoing last move:', error);
-      showStatus('撤銷失敗', 'error');
+      logger.error('[Popup] 匯入失敗:', error);
+      showStatus('匯入失敗：' + error.message, 'error');
+    } finally {
+      setButtonLoading('importBtn', false);
+      // 重置文件輸入
+      event.target.value = '';
     }
   }
 
-  // ============================================================================
-  // UTILITY FUNCTIONS
-  // ============================================================================
-
-  function showStatus(message, type) {
-    type = type || 'success';
-    const el = document.getElementById('status');
-    el.textContent = message;
-    el.className = 'status ' + type;
-    setTimeout(() => {
-      el.textContent = '';
-      el.className = 'status';
-    }, 2000);
+  /**
+   * 處理設定按鈕
+   */
+  function handleSettings() {
+    showStatus('設定功能即將推出', 'error');
+    // TODO: 在任務 2-P1.5 中實現設定頁面
   }
 
+  /**
+   * 顯示狀態訊息
+   * @param {string} message - 訊息文本
+   * @param {string} type - 訊息類型: 'success', 'error', 'loading'
+   */
+  function showStatus(message, type = 'success') {
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = message;
+    statusEl.className = 'status ' + type;
+
+    // 自動隱藏（除了 loading）
+    if (type !== 'loading') {
+      setTimeout(() => {
+        if (statusEl.textContent === message) {
+          statusEl.textContent = '';
+          statusEl.className = 'status';
+        }
+      }, STATUS_DISPLAY_MS);
+    }
+  }
+
+  /**
+   * 設置按鈕加載狀態
+   * @param {string} buttonId - 按鈕 ID
+   * @param {boolean} isLoading - 是否加載中
+   */
+  function setButtonLoading(buttonId, isLoading) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.disabled = isLoading;
+      button.style.opacity = isLoading ? '0.6' : '1';
+    }
+  }
+
+  /**
+   * 清理資源
+   */
+  window.addEventListener('beforeunload', () => {
+    stopAutoRefresh();
+  });
+
+  /**
+   * 暴露調試接口
+   */
   window._popupDebug = {
-    simulateValidation,
-    updateValidationStep,
-    displayValidationProgress,
-    loadErrorLog,
-    loadSearchHistory,
-    loadTimeSummary,
-    displayTimeSummary
+    loadAndDisplayStats,
+    updateStatsDisplay,
+    handleResetStats,
+    handleExport,
+    handleImport,
+    handleSettings,
+    showStatus,
+    getStorageManager: () => storageManager
   };
+
 })();
