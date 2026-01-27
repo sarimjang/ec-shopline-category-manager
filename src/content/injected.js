@@ -5,10 +5,30 @@
  * 1. 提供 window._scm_getAngular() 供 content script 使用
  * 2. 提供 window._scm_getScope() 供需要 AngularJS scope 的操作
  * 3. 廣播 categoryManagerReady 事件表示初始化完成
+ * 4. 條件性地暴露調試 API（僅在開發構建中）
+ *
+ * 安全性注意：
+ * - 調試 API 只在開發構建中暴露（通過環境變數 NODE_ENV=development）
+ * - 生產構建中 DEBUG_APIS_ENABLED 為 false，所有調試代碼被 tree-shaking 移除
+ * - 內部 categoryManager 對象保持在閉包中，不暴露給頁面
  */
 
 (function() {
   'use strict';
+
+  // ============================================
+  // 環境檢查 - 構建時閘控 (Phase 3.1)
+  // ============================================
+
+  /**
+   * 構建時環境標誌
+   * 此值在編譯時由構建工具注入（例如 webpack DefinePlugin）
+   * 開發構建：process.env.NODE_ENV === 'development' → DEBUG_APIS_ENABLED = true
+   * 生產構建：process.env.NODE_ENV === 'production' → DEBUG_APIS_ENABLED = false
+   *
+   * 生產構建時，所有包含 if (DEBUG_APIS_ENABLED) 的代碼段會被 tree-shake 移除
+   */
+  var DEBUG_APIS_ENABLED = typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development';
 
   // ============================================
   // AngularJS 存取介面
@@ -343,8 +363,48 @@
 
       console.log('[Injected] CategoryManager successfully initialized');
 
-      // 注意：不再暴露 window.categoryManager 或 window.debugCategoryManager
-      // 所有通信現在通過消息傳遞（messaging）進行
+      // ============================================
+      // Phase 3.1: 構建時調試 API 閘控
+      // ============================================
+      // 只在開發構建中暴露調試接口
+      // 生產構建中，此段代碼完全被移除（tree-shake）
+
+      if (DEBUG_APIS_ENABLED) {
+        // 開發構建：暴露調試接口
+        window.debugCategoryManager = {
+          moveCategory: function(categoryId, newParent, newPosition) {
+            return categoryManager.moveCategory(categoryId, newParent, newPosition);
+          },
+          undo: function() {
+            console.log('[Debug] Undo action - not yet implemented');
+            return Promise.resolve({ success: false, message: 'Undo not implemented' });
+          },
+          redo: function() {
+            console.log('[Debug] Redo action - not yet implemented');
+            return Promise.resolve({ success: false, message: 'Redo not implemented' });
+          },
+          getState: function() {
+            return {
+              categories: categoryManager.categories || [],
+              stats: categoryManager.stats || {},
+              timestamp: new Date().toISOString()
+            };
+          }
+        };
+        console.log('[Injected] Debug API enabled (development build)');
+      } else {
+        // 生產構建：確保調試 API 不存在
+        // 明確刪除以防止意外暴露
+        if (window.debugCategoryManager) {
+          delete window.debugCategoryManager;
+        }
+        if (window.categoryManager) {
+          delete window.categoryManager;
+        }
+      }
+
+      // 注意：即使在開發模式下，內部 categoryManager 也不暴露
+      // 所有生產通信通過消息傳遞（messaging）進行
       // 若需要測試，請使用瀏覽器控制台的 chrome.runtime.sendMessage() 命令
 
       // 廣播初始化完成事件（包含 nonce 作為安全驗證）

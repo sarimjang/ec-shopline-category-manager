@@ -16,11 +16,12 @@
     "bulk-operations"
   ],
   "scripts": {
-    "build": "echo 'Build steps TBD for Phase 2'",
+    "build": "NODE_ENV=production npm run build:prod",
+    "build:dev": "NODE_ENV=development node build-config.js && echo 'Development build ready (debug APIs enabled)'",
+    "build:prod": "NODE_ENV=production node build-config.js && npm run test",
     "test": "node src/shopline-category-manager.test.js",
-    "build:prod": "npm run test",
     "version:bump": "node scripts/bump-version.js",
-    "release": "npm run build:prod && npm run version:bump"
+    "release": "npm run build && npm run version:bump"
   },
   "devDependencies": {
     "conventional-changelog-cli": "^4.1.0"
