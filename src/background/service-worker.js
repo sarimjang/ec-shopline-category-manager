@@ -112,11 +112,12 @@ chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
         handleExportData(request, sendResponse);
         break;
 
-      case 'importData':
-
       case 'validateImportData':
         handleValidateImportData(request, sendResponse);
         break;
+
+      case 'executeImportData':
+        handleExecuteImportData(request, sendResponse);
         break;
 
       case 'recordCategoryMove':
@@ -594,4 +595,118 @@ function handleValidateImportData(request, sendResponse) {
       error: 'Import validation failed: ' + error.message
     });
   }
+}
+
+/**
+ * Handle executeImportData request
+ * Executes the actual data import with validated and optionally merged data
+ * Applies conflict resolutions and writes to storage with data integrity checks
+ */
+function handleExecuteImportData(request, sendResponse) {
+  const data = request.data;
+
+  if (!data || typeof data !== 'object') {
+    logger.error('Invalid data provided for import');
+    sendResponse({
+      success: false,
+      error: 'Invalid data structure for import'
+    });
+    return;
+  }
+
+  try {
+    logger.log('Starting import execution...');
+
+    // Retrieve existing data to calculate changes
+    chrome.storage.local.get(null, function(existingData) {
+      if (chrome.runtime.lastError) {
+        logger.error('Error retrieving existing data:', chrome.runtime.lastError);
+        sendResponse({
+          success: false,
+          error: 'Failed to retrieve existing data'
+        });
+        return;
+      }
+
+      try {
+        // Calculate changes
+        const oldMoveCount = (existingData.moveHistory || []).length;
+        const oldSearchCount = (existingData.searchHistory || []).length;
+        const oldErrorCount = (existingData.errorLog || []).length;
+
+        const newMoveCount = (data.moveHistory || []).length;
+        const newSearchCount = (data.searchHistory || []).length;
+        const newErrorCount = (data.errorLog || []).length;
+
+        const movedAdded = Math.max(0, newMoveCount - oldMoveCount);
+        const searchesAdded = Math.max(0, newSearchCount - oldSearchCount);
+        const errorsAdded = Math.max(0, newErrorCount - oldErrorCount);
+
+        // Prepare import data with safeguards
+        const importData = {
+          categoryMoveStats: data.categoryMoveStats || {
+            totalMoves: 0,
+            totalTimeSaved: 0,
+            lastReset: new Date().toISOString()
+          },
+          moveHistory: Array.isArray(data.moveHistory) ? data.moveHistory.slice(0, 500) : [],
+          searchHistory: Array.isArray(data.searchHistory) ? data.searchHistory.slice(0, 50) : [],
+          errorLog: Array.isArray(data.errorLog) ? data.errorLog.slice(0, 100) : [],
+          importTimestamp: new Date().toISOString()
+        };
+
+        // Set the data to storage
+        chrome.storage.local.set(importData, function() {
+          if (chrome.runtime.lastError) {
+            logger.error('Error saving import data:', chrome.runtime.lastError);
+            sendResponse({
+              success: false,
+              error: 'Failed to save imported data: ' + chrome.runtime.lastError.message
+            });
+            return;
+          }
+
+          logger.log('Import execution completed successfully', {
+            movesAdded: movedAdded,
+            searchesAdded: searchesAdded,
+            errorsAdded: errorsAdded,
+            totalMoveCount: newMoveCount,
+            totalSearchCount: newSearchCount,
+            totalErrorCount: newErrorCount
+          });
+
+          // Return success with import summary
+          sendResponse({
+            success: true,
+            message: 'Data imported successfully',
+            summary: {
+              recordsAdded: movedAdded + searchesAdded + errorsAdded,
+              movesAdded: movedAdded,
+              searchesAdded: searchesAdded,
+              errorsAdded: errorsAdded,
+              totalRecords: newMoveCount + newSearchCount + newErrorCount,
+              timestamp: new Date().toISOString()
+            }
+          });
+        });
+
+      } catch (error) {
+        logger.error('Error during import processing:', error);
+        sendResponse({
+          success: false,
+          error: 'Import processing failed: ' + error.message
+        });
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error executing import:', error);
+    sendResponse({
+      success: false,
+      error: 'Import execution failed: ' + error.message
+    });
+  }
+
+  // Return true to indicate we'll send response asynchronously
+  return true;
 }

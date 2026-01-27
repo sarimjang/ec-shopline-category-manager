@@ -200,3 +200,357 @@ body {
   border: 1px solid #bfdbfe;
 }
 
+/* ============================================================================
+   IMPORT PREVIEW PANEL STYLES
+   ============================================================================ */
+
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.import-preview-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.preview-content {
+  padding: 24px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.preview-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #f8f9fa;
+  color: #1a1a1a;
+}
+
+/* Preview Sections */
+.preview-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.preview-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.section-icon {
+  font-size: 16px;
+}
+
+.section-title.conflict-title {
+  color: #d97706;
+}
+
+/* Summary Grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #1976d2;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+  background: #e7f1fd;
+}
+
+.summary-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+/* Conflicts List */
+.conflicts-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  background: #fef2f2;
+}
+
+.conflict-item {
+  padding: 12px;
+  border-bottom: 1px solid #fecaca;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.conflict-item:last-child {
+  border-bottom: none;
+}
+
+.conflict-severity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.conflict-severity.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.conflict-severity.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.conflict-severity.info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.conflict-details {
+  flex: 1;
+}
+
+.conflict-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.conflict-resolution {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Merge Strategy Display */
+.merge-strategy-display {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.strategy-item {
+  padding: 12px;
+  background: #f0fdf4;
+  border-left: 4px solid #10b981;
+  border-radius: 6px;
+}
+
+.strategy-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.strategy-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* Impact Preview */
+.impact-preview {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.impact-item {
+  padding: 10px 12px;
+  background: #ecfdf5;
+  border-left: 3px solid #10b981;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #065f46;
+}
+
+.impact-item.warning {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+  color: #92400e;
+}
+
+.impact-item.error {
+  background: #fef2f2;
+  border-left-color: #ef4444;
+  color: #991b1b;
+}
+
+/* Progress Section */
+.progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1976d2 0%, #0d47a1 100%);
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  min-width: 2px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #6c757d;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Preview Controls */
+.preview-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+  margin-top: 24px;
+}
+
+.preview-controls .btn {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .import-preview-panel {
+    width: 95%;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .merge-strategy-display {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-controls {
+    grid-template-columns: 1fr;
+  }
+}
+

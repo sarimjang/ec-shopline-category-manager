@@ -48,6 +48,96 @@
 
     <!-- Hidden file input for import -->
     <input type="file" id="importFile" accept=".json" style="display: none;">
+
+    <!-- Import Preview Panel (hidden by default) -->
+    <div id="importPreviewPanel" class="import-preview-panel" style="display: none;">
+      <div class="preview-content">
+        <!-- Preview Header -->
+        <div class="preview-header">
+          <h2>匯入預覽</h2>
+          <button id="closePreviewBtn" class="close-btn">&times;</button>
+        </div>
+
+        <!-- Data Summary Section -->
+        <div class="preview-section">
+          <h3 class="section-title">
+            <span class="section-icon">📊</span>
+            資料摘要
+          </h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="summary-label">移動記錄</span>
+              <span class="summary-value" id="previewMoves">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">搜尋查詢</span>
+              <span class="summary-value" id="previewSearches">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">錯誤日誌</span>
+              <span class="summary-value" id="previewErrors">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">檔案大小</span>
+              <span class="summary-value" id="previewFileSize">0 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conflicts Section (shown only if conflicts exist) -->
+        <div id="conflictsSection" class="preview-section" style="display: none;">
+          <h3 class="section-title conflict-title">
+            <span class="section-icon">⚠️</span>
+            偵測到衝突 (<span id="conflictCount">0</span>)
+          </h3>
+          <div id="conflictsList" class="conflicts-list"></div>
+        </div>
+
+        <!-- Merge Strategy Section -->
+        <div class="preview-section">
+          <h3 class="section-title">
+            <span class="section-icon">🔄</span>
+            合併策略
+          </h3>
+          <div id="mergeStrategyDisplay" class="merge-strategy-display"></div>
+        </div>
+
+        <!-- Impact Preview Section -->
+        <div class="preview-section">
+          <h3 class="section-title">
+            <span class="section-icon">📈</span>
+            匯入影響預覽
+          </h3>
+          <div id="impactPreview" class="impact-preview"></div>
+        </div>
+
+        <!-- Progress Section (hidden by default) -->
+        <div id="progressSection" class="preview-section" style="display: none;">
+          <h3 class="section-title">
+            <span class="section-icon">⏳</span>
+            匯入進度
+          </h3>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+              <span id="progressMessage">準備中...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="preview-controls">
+          <button id="previewCancelBtn" class="btn btn-secondary">取消</button>
+          <button id="previewSaveBackupBtn" class="btn btn-secondary">保存備份</button>
+          <button id="previewImportBtn" class="btn btn-primary">確認匯入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay for preview panel -->
+    <div id="previewOverlay" class="preview-overlay" style="display: none;"></div>
   </div>
 
   <script src="../shared/constants.js"></script>
@@ -55,6 +145,8 @@
   <script src="../shared/storage.js"></script>
   <script src="../shared/csv-export.js"></script>
   <script src="../shared/export-formats.js"></script>
+  <script src="../shared/import-validator.js"></script>
+  <script src="../shared/conflict-detector.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
