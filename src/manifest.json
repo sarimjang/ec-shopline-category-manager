@@ -31,7 +31,8 @@
       "js": [
         "content/init.js",
         "shared/storage.js",
-        "content/content.js"
+        "content/content.js",
+        "shared/storage-schema.js"
       ],
       "run_at": "document_start"
     }
@@ -42,7 +43,8 @@
         "content/injected.js",
         "shared/storage.js",
         "shared/logger.js",
-        "shared/constants.js"
+        "shared/constants.js",
+        "shared/storage-schema.js"
       ],
       "matches": [
         "*://app.shoplineapp.com/*",
