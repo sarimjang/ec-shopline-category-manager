@@ -37,34 +37,76 @@
   /**
    * 提供 AngularJS 物件給 content script
    * Content script 通過呼叫此函數取得 window.angular
+   *
+   * @returns {Object|null} AngularJS 物件，若不可用返回 null
    */
   window._scm_getAngular = function() {
-    if (typeof window !== 'undefined' && window.angular) {
-      return window.angular;
+    if (typeof window === 'undefined') {
+      console.error('[Injected] window is not defined (unexpected)');
+      return null;
     }
-    console.warn('[Injected] AngularJS not available');
-    return null;
+
+    if (!window.angular) {
+      console.warn('[Injected] AngularJS not available on window.angular');
+      return null;
+    }
+
+    if (typeof window.angular.element !== 'function') {
+      console.error('[Injected] window.angular found but missing expected methods');
+      return null;
+    }
+
+    return window.angular;
   };
 
   /**
    * 取得 AngularJS scope
    * 用於需要直接操作 scope 的情況
+   *
+   * @param {Element|string} element - DOM 元素或選擇器字符串
+   * @returns {Object|null} AngularJS scope 物件，若失敗返回 null
    */
   window._scm_getScope = function(element) {
     const ng = window._scm_getAngular();
     if (!ng) {
-      console.error('[Injected] AngularJS not available');
+      console.error('[Injected] AngularJS not available, cannot get scope');
       return null;
     }
+
+    if (!element) {
+      console.error('[Injected] Element parameter is required for getScope');
+      return null;
+    }
+
     try {
-      return ng.element(element).scope();
+      let targetElement = element;
+      if (typeof element === 'string') {
+        targetElement = document.querySelector(element);
+        if (!targetElement) {
+          console.warn('[Injected] Element not found for selector:', element);
+          return null;
+        }
+      }
+
+      const scope = ng.element(targetElement).scope();
+
+      if (!scope) {
+        console.warn('[Injected] No AngularJS scope found on element');
+        return null;
+      }
+
+      return scope;
     } catch (error) {
-      console.error('[Injected] Failed to get scope:', error);
+      console.error('[Injected] Failed to get scope:', error.message);
       return null;
     }
   };
 
-  console.log('[Injected] AngularJS access functions initialized');
+  console.log('[Injected] AngularJS access functions initialized', {
+    getAngularAvailable: typeof window._scm_getAngular === 'function',
+    getScopeAvailable: typeof window._scm_getScope === 'function',
+    angularPresent: typeof window.angular !== 'undefined'
+  });
 
   // ============================================
   // EVENT LISTENER CLEANUP MECHANISM (Phase 1.4)
@@ -507,6 +549,37 @@
       console.error('[Injected] Error initializing CategoryManager:', error);
       console.error('[Injected] Stack trace:', error.stack);
     }
+  }
+
+  // ============================================
+  // 跨世界通信驗證與狀態暴露
+  // ============================================
+
+  window._scm_injected_status = function() {
+    return {
+      injected_ready: true,
+      angular_available: typeof window.angular !== 'undefined',
+      functions_exposed: {
+        getAngular: typeof window._scm_getAngular === 'function',
+        getScope: typeof window._scm_getScope === 'function'
+      },
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  const status = window._scm_injected_status();
+  console.log('[Injected] Status check:', {
+    ready: status.injected_ready,
+    angular: status.angular_available,
+    functionsExposed: status.functions_exposed,
+    timestamp: status.timestamp
+  });
+
+  if (!status.functions_exposed.getAngular || !status.functions_exposed.getScope) {
+    console.error('[Injected] WARNING: Expected functions not properly exposed!', {
+      getAngular: status.functions_exposed.getAngular,
+      getScope: status.functions_exposed.getScope
+    });
   }
 
   console.log('[Injected] Shopline Category Manager injected script loaded');
