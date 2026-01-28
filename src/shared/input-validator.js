@@ -422,6 +422,65 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
+   * Validate category name (for move history recording)
+   * @param {string} categoryName - Name of the category
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string type
+   *   - Must not be empty
+   *   - Max length: 255 characters
+   *   - No null bytes or control characters
+   */
+  function validateCategoryName(categoryName) {
+    const errors = [];
+
+    // 類型檢查
+    if (typeof categoryName !== 'string') {
+      errors.push({
+        field: 'categoryName',
+        error: 'Category name must be a string',
+        type: 'TYPE_ERROR'
+      });
+      return { valid: false, errors };
+    }
+
+    // 空字符串檢查
+    if (categoryName.trim().length === 0) {
+      errors.push({
+        field: 'categoryName',
+        error: 'Category name cannot be empty',
+        type: 'EMPTY_ERROR'
+      });
+      return { valid: false, errors };
+    }
+
+    // 長度限制
+    const lengthCheck = validateStringLength(categoryName, LIMITS.categoryName);
+    if (!lengthCheck.valid) {
+      errors.push({
+        field: 'categoryName',
+        error: lengthCheck.error,
+        type: 'LENGTH_ERROR'
+      });
+      return { valid: false, errors };
+    }
+
+    // 檢查控制字符和空字符
+    if (/[\x00-\x1F\x7F]/g.test(categoryName)) {
+      errors.push({
+        field: 'categoryName',
+        error: 'Category name contains invalid control characters',
+        type: 'FORMAT_ERROR'
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
    * Validate time saved values (in seconds)
    * @param {number} timeSaved - Time saved in seconds
    * @returns {Object} Validation result {valid, errors}
@@ -791,6 +850,7 @@ const ShoplineInputValidator = (function() {
     validateAction,
     validateQuery,
     validateCategoryId,
+    validateCategoryName,
     validateTimeSaved,
     validateErrorType,
     validateErrorMessage,

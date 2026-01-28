@@ -126,7 +126,6 @@ chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
       return;
     }
 
-    try {
     // Route based on action type
     switch (request.action) {
       case 'getCategories':
@@ -307,8 +306,13 @@ function handleImportData(request, sendResponse) {
 /**
  * Handle recordCategoryMove request
  * Called when a category move is detected
+ * Records: stats (totalMoves, totalTimeSaved) + detailed move history
  */
 function handleRecordCategoryMove(request, sendResponse) {
+  // ========================================================================
+  // 第一步：驗證所有必需的參數
+  // ========================================================================
+
   // 驗證時間節省值
   const timeSavedValidation = window.ShoplineInputValidator.validateTimeSaved(request.timeSaved || 0);
   if (!timeSavedValidation.valid) {
@@ -322,23 +326,131 @@ function handleRecordCategoryMove(request, sendResponse) {
     return;
   }
 
-  const timeSaved = request.timeSaved || 0;
+  // 驗證分類名稱（可選，但如果提供則驗證）
+  if (request.categoryName !== undefined && request.categoryName !== null) {
+    const categoryNameValidation = window.ShoplineInputValidator.validateCategoryName(request.categoryName);
+    if (!categoryNameValidation.valid) {
+      logger.error('Invalid categoryName:', categoryNameValidation.errors);
+      window.ShoplineInputValidator.logRejectedRequest(request, categoryNameValidation);
+      sendResponse({
+        success: false,
+        error: 'Invalid categoryName',
+        details: categoryNameValidation.errors
+      });
+      return;
+    }
+  }
 
-  chrome.storage.local.get(['categoryMoveStats'], function(result) {
+  // 驗證目標級別（可選，但如果提供則驗證）
+  if (request.targetLevel !== undefined && request.targetLevel !== null) {
+    if (typeof request.targetLevel !== 'number' || request.targetLevel < 0 || request.targetLevel > 3) {
+      logger.error('Invalid targetLevel:', request.targetLevel);
+      window.ShoplineInputValidator.logRejectedRequest(request, {
+        valid: false,
+        errors: ['targetLevel must be a number between 0 and 3']
+      });
+      sendResponse({
+        success: false,
+        error: 'Invalid targetLevel',
+        details: { targetLevel: 'Must be 0-3' }
+      });
+      return;
+    }
+  }
+
+  const timeSaved = request.timeSaved || 0;
+  const categoryName = request.categoryName || 'Unknown';
+  const targetLevel = request.targetLevel || 0;
+  const timestamp = new Date().toISOString();
+
+  // ========================================================================
+  // 第二步：從 chrome.storage.local 讀取當前統計數據
+  // ========================================================================
+
+  chrome.storage.local.get(['categoryMoveStats', 'moveHistory'], function(result) {
+    if (chrome.runtime.lastError) {
+      logger.error('Error reading storage:', chrome.runtime.lastError);
+      sendResponse({
+        success: false,
+        error: 'Failed to read storage',
+        details: chrome.runtime.lastError.message
+      });
+      return;
+    }
+
+    // ====================================================================
+    // 第三步：更新統計數據
+    // ====================================================================
+
     const stats = result.categoryMoveStats || {
       totalMoves: 0,
       totalTimeSaved: 0,
-      lastReset: new Date().toISOString()
+      lastReset: timestamp
     };
 
     stats.totalMoves += 1;
     stats.totalTimeSaved += timeSaved;
+    stats.lastMoveTime = timestamp;
 
-    chrome.storage.local.set({ categoryMoveStats: stats }, function() {
-      logger.log('Category move recorded', { stats });
+    // ====================================================================
+    // 第四步：記錄完整的移動歷史
+    // ====================================================================
+
+    let moveHistory = result.moveHistory || [];
+
+    const moveRecord = {
+      timestamp: timestamp,
+      categoryName: categoryName,
+      targetLevel: targetLevel,
+      timeSaved: timeSaved,
+      moveNumber: stats.totalMoves
+    };
+
+    // 在陣列開頭添加新的移動記錄（最新的在前）
+    moveHistory.unshift(moveRecord);
+
+    // 保持最多 500 個記錄
+    if (moveHistory.length > 500) {
+      moveHistory = moveHistory.slice(0, 500);
+      logger.log('Move history truncated to 500 records');
+    }
+
+    logger.log('Move record to save:', moveRecord);
+    logger.log('Total moves in history:', moveHistory.length);
+
+    // ====================================================================
+    // 第五步：保存更新的統計數據和歷史到 chrome.storage.local
+    // ====================================================================
+
+    chrome.storage.local.set({
+      categoryMoveStats: stats,
+      moveHistory: moveHistory
+    }, function() {
+      if (chrome.runtime.lastError) {
+        logger.error('Error saving statistics:', chrome.runtime.lastError);
+        sendResponse({
+          success: false,
+          error: 'Failed to save statistics',
+          details: chrome.runtime.lastError.message
+        });
+        return;
+      }
+
+      logger.log('Category move recorded successfully', {
+        stats: stats,
+        moveRecord: moveRecord,
+        historySize: moveHistory.length
+      });
+
+      // ================================================================
+      // 第六步：返回成功響應
+      // ================================================================
+
       sendResponse({
         success: true,
-        stats: stats
+        stats: stats,
+        moveRecord: moveRecord,
+        historySize: moveHistory.length
       });
     });
   });
