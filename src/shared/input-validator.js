@@ -87,9 +87,14 @@ const ShoplineInputValidator = (function() {
   // ============================================================================
 
   /**
-   * 轉義字符串以防止 XSS
-   * @param {string} str - 需要轉義的字符串
-   * @returns {string} 轉義後的字符串
+   * Escape string to prevent XSS attacks
+   * Converts dangerous HTML characters to entities
+   * @param {string} str - String to escape
+   * @returns {string} Escaped string (or empty string if not a string)
+   * @character-mapping < → &lt; | > → &gt; | " → &quot; | ' → &#39; | ` → &#x60; | & → &amp;
+   * @example
+   * const escaped = escapeXSS('<script>alert("xss")</script>');
+   * // → '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
    */
   function escapeXSS(str) {
     if (typeof str !== 'string') {
@@ -99,9 +104,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 檢測潛在的注入攻擊
-   * @param {string} input - 需要檢查的輸入
-   * @returns {Array} 檢測到的攻擊模式列表
+   * Detect potential injection attack patterns in strings
+   * @param {string} input - String to analyze
+   * @returns {Array<Object>} List of detected attacks with {type, pattern, severity}
+   * @attack-types
+   *   - SQL_INJECTION: SQL keywords (SELECT, DROP, INSERT, etc) - severity HIGH
+   *   - SCRIPT_INJECTION: Script tags or event handlers - severity CRITICAL
+   *   - NULL_BYTE_INJECTION: Null byte character \0 - severity HIGH
+   *   - DEEP_NESTING: Excessive JSON nesting (>100 levels) - severity MEDIUM
+   * @example
+   * const attacks = detectInjectionAttacks('SELECT * FROM users');
+   * if (attacks.length > 0) { reject input; }
    */
   function detectInjectionAttacks(input) {
     const attacks = [];
@@ -151,10 +164,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證字符串長度
-   * @param {string} str - 需要驗證的字符串
-   * @param {number} maxLength - 最大長度
-   * @returns {Object} 驗證結果
+   * Validate string length constraints
+   * @param {string} str - String to validate
+   * @param {number} maxLength - Maximum allowed length
+   * @returns {Object} Validation result
+   * @returns {Object.valid} boolean - Whether string is within limit
+   * @returns {Object.length} number | null - Actual length (or null if not string)
+   * @returns {Object.maxLength} number - Maximum allowed length
+   * @returns {Object.error} string - Error message if invalid
+   * @example
+   * const result = validateStringLength(query, 500);
+   * if (!result.valid) { showError(result.error); }
    */
   function validateStringLength(str, maxLength) {
     if (typeof str !== 'string') {
@@ -187,9 +207,14 @@ const ShoplineInputValidator = (function() {
   // ============================================================================
 
   /**
-   * 驗證請求基本結構
-   * @param {Object} request - 請求對象
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate basic request structure
+   * @param {Object} request - Request object to validate
+   * @returns {Object} Validation result
+   * @returns {boolean} result.valid - Whether request is valid
+   * @returns {Array<Object>} result.errors - List of validation errors
+   * @example
+   * const result = validateRequestStructure({ action: 'getStats' });
+   * if (result.valid) { ... }
    */
   function validateRequestStructure(request) {
     const errors = [];
@@ -218,9 +243,18 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證操作名稱
-   * @param {string} action - 操作名稱
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate action name against whitelist and security rules
+   * @param {string} action - Action name to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @throws No exceptions, returns error in result
+   * @constraints
+   *   - Must be string type
+   *   - Max 100 characters
+   *   - Must be in ALLOWED_ACTIONS whitelist
+   *   - Must not contain injection attack patterns
+   * @example
+   * const result = validateAction('getStats');
+   * if (result.valid) { processAction(...); }
    */
   function validateAction(action) {
     const errors = [];
@@ -272,9 +306,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證查詢字符串
-   * @param {string} query - 查詢字符串
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate search/filter query strings
+   * @param {string} query - Query string to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string type
+   *   - Max 500 characters
+   *   - Must not be empty or whitespace-only
+   *   - Must not contain injection attack patterns
+   * @example
+   * const result = validateQuery('category name');
+   * if (result.valid) { performSearch(query); }
    */
   function validateQuery(query) {
     const errors = [];
@@ -327,9 +369,16 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證分類 ID
-   * @param {string} categoryId - 分類 ID
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate category identifiers
+   * @param {string|number} categoryId - Category ID to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string or number
+   *   - Max 200 characters
+   *   - Format: alphanumeric, underscore, hyphen only (/^[a-zA-Z0-9_-]+$/)
+   * @example
+   * const result = validateCategoryId('cat-123');
+   * if (result.valid) { updateCategory(...); }
    */
   function validateCategoryId(categoryId) {
     const errors = [];
@@ -373,9 +422,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證時間節省值
-   * @param {number} timeSaved - 時間節省值（秒）
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate time saved values (in seconds)
+   * @param {number} timeSaved - Time saved in seconds
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be number type (not string)
+   *   - Must be non-negative
+   *   - Must be integer (no decimals)
+   *   - Max value: 999,999
+   * @example
+   * const result = validateTimeSaved(100);
+   * if (result.valid) { recordStat(timeSaved); }
    */
   function validateTimeSaved(timeSaved) {
     const errors = [];
@@ -424,9 +481,15 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證錯誤類型
-   * @param {string} errorType - 錯誤類型
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate error classification types
+   * @param {string} errorType - Error type to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string type
+   *   - Must be in ERROR_TYPES whitelist: 'network', 'api', 'validation', 'scope'
+   * @example
+   * const result = validateErrorType('network');
+   * if (result.valid) { recordError(...); }
    */
   function validateErrorType(errorType) {
     const errors = [];
@@ -457,9 +520,16 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證錯誤訊息
-   * @param {string} message - 錯誤訊息
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate error message strings
+   * @param {string} message - Error message to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string type
+   *   - Max 2,000 characters
+   *   - Must not contain injection attack patterns
+   * @example
+   * const result = validateErrorMessage('An error occurred');
+   * if (result.valid) { logError(message); }
    */
   function validateErrorMessage(message) {
     const errors = [];
@@ -502,9 +572,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證 JSON 字符串（進口數據）
-   * @param {string} jsonString - JSON 字符串
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate JSON strings (for import data)
+   * @param {string} jsonString - JSON string to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be string type
+   *   - Max size: 10 MB (10,485,760 bytes)
+   *   - Must not be empty
+   *   - Must not contain excessive nesting (>100 levels) - prevents DoS
+   * @example
+   * const result = validateJsonString('{"key":"value"}');
+   * if (result.valid) { importData(jsonString); }
    */
   function validateJsonString(jsonString) {
     const errors = [];
@@ -557,9 +635,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證數據對象（進口數據）
-   * @param {Object} data - 數據對象
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate storage data objects with whitelist enforcement
+   * @param {Object} data - Data object to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be non-null object (not array)
+   *   - All keys must be in ALLOWED_STORAGE_KEYS whitelist:
+   *     categories, categoryMoveStats, moveHistory, searchHistory,
+   *     errorLog, importTimestamp, exports, imports
+   * @example
+   * const result = validateDataObject({ categories: [...] });
+   * if (result.valid) { await chrome.storage.local.set(data); }
    */
   function validateDataObject(data) {
     const errors = [];
@@ -602,9 +688,17 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 驗證分類數據數組
-   * @param {Array} categories - 分類數組
-   * @returns {Object} 驗證結果 {valid, errors}
+   * Validate category data arrays
+   * @param {Array} categories - Categories array to validate
+   * @returns {Object} Validation result {valid, errors}
+   * @constraints
+   *   - Must be array (not object, not null)
+   *   - Max 10,000 items
+   *   - Each item must be non-null object
+   *   - Each item must have 'id' field
+   * @example
+   * const result = validateCategories([{ id: '1', name: 'Cat1' }]);
+   * if (result.valid) { updateCategories(...); }
    */
   function validateCategories(categories) {
     const errors = [];
@@ -656,9 +750,15 @@ const ShoplineInputValidator = (function() {
   }
 
   /**
-   * 簽記被拒絕的請求
-   * @param {Object} request - 原始請求
-   * @param {Object} validationResult - 驗證結果
+   * Log rejected/failed validation requests for debugging and security monitoring
+   * @param {Object} request - Original request object
+   * @param {Object} validationResult - Validation result with errors
+   * @side-effects Logs to ShoplineLogger or console
+   * @security Logs are important for security incident tracking
+   * @example
+   * if (!validation.valid) {
+   *   logRejectedRequest(request, validation);
+   * }
    */
   function logRejectedRequest(request, validationResult) {
     const timestamp = new Date().toISOString();

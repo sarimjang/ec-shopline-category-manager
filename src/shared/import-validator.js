@@ -17,6 +17,22 @@ const ShoplineImportValidator = (function() {
   const SUPPORTED_SCHEMA_VERSIONS = [1];
   const ISO_8601_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?$/;
 
+  /**
+   * Validate JSON syntax and basic structure
+   * @param {string} jsonString - JSON string to parse
+   * @returns {Object} Validation result
+   * @returns {Object.isValid} boolean - Whether JSON is valid
+   * @returns {Object.data} object | null - Parsed data (only if valid)
+   * @returns {Object.error} string | null - Error message if invalid
+   * @constraints
+   *   - Must be string type
+   *   - Must not be empty
+   *   - Must be parseable JSON
+   *   - Root must be object, not array or primitive
+   * @example
+   * const result = validateJsonFormat('{"key":"value"}');
+   * if (result.isValid) { processData(result.data); }
+   */
   function validateJsonFormat(jsonString) {
     try {
       if (typeof jsonString !== 'string') {
@@ -36,6 +52,15 @@ const ShoplineImportValidator = (function() {
     }
   }
 
+  /**
+   * Check for presence of all required fields
+   * @param {Object} data - Data object to validate
+   * @returns {Array<string>} List of missing field names (empty if all present)
+   * @required-fields categoryMoveStats, moveHistory, searchHistory, errorLog
+   * @example
+   * const missing = validateRequiredFields(data);
+   * if (missing.length > 0) { showError('Missing: ' + missing.join(', ')); }
+   */
   function validateRequiredFields(data) {
     const missing = [];
     const requiredFields = ['categoryMoveStats', 'moveHistory', 'searchHistory', 'errorLog'];
@@ -45,6 +70,21 @@ const ShoplineImportValidator = (function() {
     return missing;
   }
 
+  /**
+   * Validate data types of all fields
+   * @param {Object} data - Data object to validate
+   * @returns {Array<string>} List of type error messages
+   * @type-constraints
+   *   - categoryMoveStats: object (not array)
+   *   - categoryMoveStats.totalMoves: number (if present)
+   *   - categoryMoveStats.totalTimeSaved: number (if present)
+   *   - moveHistory: array
+   *   - searchHistory: array
+   *   - errorLog: array
+   * @example
+   * const errors = validateDataTypes(data);
+   * if (errors.length > 0) { showErrors(errors); }
+   */
   function validateDataTypes(data) {
     const typeErrors = [];
     if (data.categoryMoveStats) {
@@ -72,6 +112,16 @@ const ShoplineImportValidator = (function() {
     return typeErrors;
   }
 
+  /**
+   * Validate ISO 8601 timestamp formats
+   * @param {Object} data - Data object containing timestamps
+   * @returns {Array<string>} List of timestamp format error messages
+   * @timestamp-format ISO 8601: YYYY-MM-DDTHH:mm:ss[.sss]Z
+   * @fields-checked categoryMoveStats.lastReset (if present)
+   * @example
+   * const errors = validateTimestampFormats(data);
+   * if (errors.length > 0) { showWarnings(errors); }
+   */
   function validateTimestampFormats(data) {
     const timestampErrors = [];
     if (data.categoryMoveStats && data.categoryMoveStats.lastReset) {
@@ -82,6 +132,19 @@ const ShoplineImportValidator = (function() {
     return timestampErrors;
   }
 
+  /**
+   * Verify schema version compatibility
+   * @param {Object} data - Data object with optional version field
+   * @returns {Object} Schema version result
+   * @returns {Object.compatible} boolean - Whether version is supported
+   * @returns {Object.version} number - Schema version (defaults to 1)
+   * @returns {Object.message} string - Compatibility status message
+   * @supported-versions [1]
+   * @default-version 1 (if version field not present)
+   * @example
+   * const versionResult = validateSchemaVersion(data);
+   * if (!versionResult.compatible) { showError(versionResult.message); }
+   */
   function validateSchemaVersion(data) {
     const version = data.version || 1;
     if (!SUPPORTED_SCHEMA_VERSIONS.includes(version)) {
@@ -94,6 +157,19 @@ const ShoplineImportValidator = (function() {
     return { compatible: true, version: version, message: 'Compatible' };
   }
 
+  /**
+   * Check data size boundaries and warn if exceeded
+   * @param {Object} data - Data object to validate
+   * @returns {Array<string>} List of boundary warning messages
+   * @boundary-limits
+   *   - moveHistory: max 500 items (warning only, data truncated if valid)
+   *   - searchHistory: max 50 items (warning only, data truncated if valid)
+   *   - errorLog: max 100 items (warning only, data truncated if valid)
+   * @note Data is only truncated if validation passes (isValid=true)
+   * @example
+   * const warnings = validateDataBoundaries(data);
+   * warnings.forEach(w => console.warn(w));
+   */
   function validateDataBoundaries(data) {
     const warnings = [];
     if (data.moveHistory && data.moveHistory.length > 500) {
@@ -108,6 +184,21 @@ const ShoplineImportValidator = (function() {
     return warnings;
   }
 
+  /**
+   * Generate summary statistics about imported data
+   * @param {Object} data - Data object to summarize
+   * @returns {Object} Summary object with statistics
+   * @returns {Object.totalMoves} number - Total number of category moves
+   * @returns {Object.totalTimeSaved} number - Total time saved (seconds)
+   * @returns {Object.moveRecords} number - Count of move history items
+   * @returns {Object.searchQueries} number - Count of search history items
+   * @returns {Object.errorRecords} number - Count of error log items
+   * @returns {Object.exportDate} string | null - When data was exported
+   * @returns {Object.importDate} string - ISO 8601 timestamp of import
+   * @example
+   * const summary = generateDataSummary(data);
+   * console.log(`Importing ${summary.moveRecords} move records`);
+   */
   function generateDataSummary(data) {
     return {
       totalMoves: (data.categoryMoveStats || {}).totalMoves || 0,
@@ -120,6 +211,39 @@ const ShoplineImportValidator = (function() {
     };
   }
 
+  /**
+   * Complete validation of import JSON data
+   *
+   * Performs comprehensive validation with multiple checks:
+   * 1. JSON format validation
+   * 2. Schema version compatibility
+   * 3. Required fields presence
+   * 4. Data type checking
+   * 5. Timestamp format validation
+   * 6. Boundary constraints
+   * 7. Data truncation (if valid)
+   *
+   * @param {string} jsonString - JSON string to validate
+   * @returns {Object} Complete validation result
+   * @returns {Object.isValid} boolean - Overall validity (false if any critical error)
+   * @returns {Object.data} object | null - Parsed data (null if invalid)
+   * @returns {Object.errors} Array<Object> - Critical errors that prevent import
+   * @returns {Object.warnings} Array<Object> - Non-critical warnings
+   * @returns {Object.summary} object | null - Data statistics (if valid)
+   * @returns {Object.schemaVersion} Object - Schema version compatibility info
+   * @truncation-behavior
+   *   - moveHistory: truncated to last 500 items (only if isValid=true)
+   *   - searchHistory: truncated to last 50 items (only if isValid=true)
+   *   - errorLog: truncated to last 100 items (only if isValid=true)
+   * @example
+   * const result = validateImportData(jsonString);
+   * if (result.isValid) {
+   *   console.log('Import summary:', result.summary);
+   *   applyData(result.data);
+   * } else {
+   *   result.errors.forEach(e => console.error(e.message));
+   * }
+   */
   function validateImportData(jsonString) {
     const result = {
       isValid: true,
