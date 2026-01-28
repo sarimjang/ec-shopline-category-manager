@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "description": "Bulk manage Shopline store categories",
   "author": "Development Team",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; default-src 'self'"
+  },
   "permissions": [
     "storage",
     "contextMenus"
