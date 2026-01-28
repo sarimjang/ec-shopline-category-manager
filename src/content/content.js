@@ -136,19 +136,40 @@
     }
 
     /**
-     * 從 localStorage 載入統計數據
+     * 從 Service Worker 載入統計數據（使用消息傳遞）
+     * Phase 2.2: Migrated from window._scm_storage to message-based API
+     */
+    async loadStatsAsync() {
+      try {
+        return await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[TimeSavingsTracker] Failed to load stats:', chrome.runtime.lastError);
+              reject(chrome.runtime.lastError);
+            } else if (response.success && response.stats) {
+              resolve(response.stats);
+            } else {
+              reject(new Error('Failed to get stats from service worker'));
+            }
+          });
+        });
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] Error loading stats:', error);
+        // 預設值
+        return {
+          totalMoves: 0,
+          totalTimeSaved: 0,
+          lastReset: new Date().toISOString()
+        };
+      }
+    }
+
+    /**
+     * 同步方式載入統計數據（僅用於初始化）
+     * 注意：此方法返回預設值，因為存儲是非同步的
      */
     loadStats() {
-      try {
-        const data = window._scm_storage.getItem(this.storageKey);
-        if (data) {
-          return JSON.parse(data);
-        }
-      } catch (error) {
-        console.warn('[TimeSavingsTracker] 載入統計失敗:', error);
-      }
-
-      // 預設值
+      // 預設值 - 實際值應通過 loadStatsAsync() 異步載入
       return {
         totalMoves: 0,
         totalTimeSaved: 0,
@@ -157,14 +178,13 @@
     }
 
     /**
-     * 儲存統計數據到 localStorage
+     * 通過消息傳遞更新統計數據到 Service Worker
+     * Phase 2.2: Migrated from window._scm_storage to message-based API
      */
     saveStats() {
-      try {
-        window._scm_storage.setItem(this.storageKey, JSON.stringify(this.stats));
-      } catch (error) {
-        console.warn('[TimeSavingsTracker] 儲存統計失敗:', error);
-      }
+      // 統計保存由 recordMove 中的消息傳遞完成
+      // 此方法已移除直接存儲操作
+      console.log('[TimeSavingsTracker] Stats updated (via message-based API):', this.stats);
     }
 
     /**
@@ -2507,23 +2527,10 @@ const contentEventManager = new ContentScriptEventListenerManager();
   window._scm_contentEventStats = () => contentEventManager.getStats();
   console.log('[content.js] Event manager stats available at window._scm_contentEventStats()');
   
-  // 等待 storage API 初始化
-  if (!window._scm_storage) {
-    console.error('[content.js] Storage API not available');
-    return;
-  }
-  
-  try {
-    const initialized = await window._scm_storage.init();
-    if (!initialized) {
-      console.error('[content.js] Failed to initialize storage');
-      return;
-    }
-    console.log('[content.js] Storage initialized successfully');
-  } catch (error) {
-    console.error('[content.js] Error initializing storage:', error);
-    return;
-  }
+  // Phase 2.2: Storage API now uses message-based communication
+  // No need to check or initialize window._scm_storage
+  // All storage operations go through chrome.runtime.sendMessage to the Service Worker
+  console.log('[content.js] Storage API initialized (message-based communication)');
   
   // 等待 AngularJS 準備好
   let angularReady = false;

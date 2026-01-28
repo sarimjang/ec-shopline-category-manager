@@ -22,20 +22,25 @@ const ShoplineConflictDetector = (function() {
   function detectDuplicateMoves(importedMoves, existingMoves) {
     const duplicates = [];
     if (!Array.isArray(importedMoves) || !Array.isArray(existingMoves)) return duplicates;
-    
-    importedMoves.forEach((importedMove, importIdx) => {
-      existingMoves.forEach((existingMove, existingIdx) => {
-        if (importedMove.categoryId === existingMove.categoryId &&
-            importedMove.timestamp === existingMove.timestamp &&
-            importedMove.timeSaved === existingMove.timeSaved) {
-          duplicates.push({
-            severity: SEVERITY.WARNING,
-            type: CONFLICT_TYPE.DUPLICATE_MOVE,
-            message: 'Duplicate move: categoryId=' + importedMove.categoryId,
-            resolution: 'SKIP'
-          });
-        }
-      });
+
+    // O(n) 優化: 使用 Map 儲存現存的 moves，鍵為 categoryId_timestamp_timeSaved
+    const existingMovesMap = new Map();
+    existingMoves.forEach((move) => {
+      const key = move.categoryId + '_' + move.timestamp + '_' + move.timeSaved;
+      existingMovesMap.set(key, move);
+    });
+
+    // O(n) 檢測: 逐個檢查匯入的 moves
+    importedMoves.forEach((importedMove) => {
+      const key = importedMove.categoryId + '_' + importedMove.timestamp + '_' + importedMove.timeSaved;
+      if (existingMovesMap.has(key)) {
+        duplicates.push({
+          severity: SEVERITY.WARNING,
+          type: CONFLICT_TYPE.DUPLICATE_MOVE,
+          message: 'Duplicate move: categoryId=' + importedMove.categoryId,
+          resolution: 'SKIP'
+        });
+      }
     });
     return duplicates;
   }
@@ -43,9 +48,13 @@ const ShoplineConflictDetector = (function() {
   function detectDuplicateSearches(importedQueries, existingQueries) {
     const duplicates = [];
     if (!Array.isArray(importedQueries) || !Array.isArray(existingQueries)) return duplicates;
-    
+
+    // O(n) 優化: 使用 Set 儲存現存的搜尋查詢，而非使用 indexOf
+    const existingQueriesSet = new Set(existingQueries);
+
+    // O(n) 檢測: 逐個檢查匯入的查詢
     importedQueries.forEach((query) => {
-      if (existingQueries.indexOf(query) > -1) {
+      if (existingQueriesSet.has(query)) {
         duplicates.push({
           severity: SEVERITY.INFO,
           type: CONFLICT_TYPE.DUPLICATE_SEARCH,
@@ -60,20 +69,25 @@ const ShoplineConflictDetector = (function() {
   function detectDuplicateErrors(importedErrors, existingErrors) {
     const duplicates = [];
     if (!Array.isArray(importedErrors) || !Array.isArray(existingErrors)) return duplicates;
-    
+
+    // O(n) 優化: 使用 Map 儲存現存的 errors，鍵為 type_message_timestamp
+    const existingErrorsMap = new Map();
+    existingErrors.forEach((error) => {
+      const key = error.type + '_' + error.message + '_' + error.timestamp;
+      existingErrorsMap.set(key, error);
+    });
+
+    // O(n) 檢測: 逐個檢查匯入的 errors
     importedErrors.forEach((importedError) => {
-      existingErrors.forEach((existingError) => {
-        if (importedError.type === existingError.type &&
-            importedError.message === existingError.message &&
-            importedError.timestamp === existingError.timestamp) {
-          duplicates.push({
-            severity: SEVERITY.INFO,
-            type: CONFLICT_TYPE.DUPLICATE_ERROR,
-            message: 'Duplicate error: ' + importedError.type,
-            resolution: 'SKIP'
-          });
-        }
-      });
+      const key = importedError.type + '_' + importedError.message + '_' + importedError.timestamp;
+      if (existingErrorsMap.has(key)) {
+        duplicates.push({
+          severity: SEVERITY.INFO,
+          type: CONFLICT_TYPE.DUPLICATE_ERROR,
+          message: 'Duplicate error: ' + importedError.type,
+          resolution: 'SKIP'
+        });
+      }
     });
     return duplicates;
   }
