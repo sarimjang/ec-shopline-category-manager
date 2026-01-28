@@ -1,0 +1,87 @@
+
+1. NONCE GENERATION & INITIALIZATION
+====================================
+
+2. SCRIPT INJECTION WITH NONCE
+==============================
+
+3. NONCE VALIDATION
+===================
+
+4. EVENT LISTENER CLEANUP
+=========================
+
+5. INITIALIZATION FLOW
+======================
+
+6. CROSS-WORLD COMMUNICATION
+============================
+
+7. SECURITY CHECKS
+==================
+
+8. BOUNDARY CASES
+=================
+
+9. LOGGING & DEBUGGING
+======================
+
+10. MANIFEST CONFIGURATION
+==========================
+
+╔════════════════════════════════════════════════════════╗
+║     Phase 1.5 Integration Testing                       ║
+║     Nonce 生成、驗證和清理機制整合測試                  ║
+╚════════════════════════════════════════════════════════╝
+
+✓ init.js exists and contains generateNonce function
+✓ generateNonce creates 32-character hex string
+✓ initializeNonce prevents duplicate generation
+✓ init.js stores nonce in window._scm_nonce
+✓ injectScript function exists
+✓ injectScript attaches nonce to script dataset
+✓ injected.js can retrieve nonce from script tag
+✓ injected.js includes nonce in categoryManagerReady event
+✓ validateNonce function exists and uses constant-time comparison
+✓ validateNonce checks nonce format
+✓ validateNonce prevents timing attacks
+✓ waitForCategoryManagerReady validates nonce
+✓ waitForCategoryManagerReady registers event listener
+✓ waitForCategoryManagerReady removes listener on success
+✓ waitForCategoryManagerReady removes listener on timeout
+✓ init.js sets 5-second timeout for categoryManagerReady
+✓ init.js has EventListenerManager for cleanup
+  Note: Page unload cleanup to be verified in manual testing
+✓ injected.js cleans up listeners on page unload
+✓ init.js initialize function coordinates setup steps
+✓ init.js dispatches scmInitComplete event after setup
+✓ initialize function handles errors gracefully
+✓ init.js starts on DOM ready or immediately if already loaded
+✓ manifest.json includes init.js before content.js in content_scripts
+✓ injected.js is in web_accessible_resources
+✓ content/init.js can access chrome.runtime.getURL
+✓ content script runs at document_start
+✓ nonce is cryptographically generated (16 bytes)
+✓ nonce validation is constant-time
+✓ injected.js does not expose internal categoryManager
+✓ injected.js only exposes helper functions
+✓ validateNonce rejects mismatched nonce
+✓ validateNonce rejects invalid nonce format
+✓ validateNonce rejects different-length nonce
+✓ waitForCategoryManagerReady handles missing event detail
+✓ waitForCategoryManagerReady times out after 5 seconds
+✓ init.js handles AngularJS not found
+✓ injected.js handles missing AngularJS gracefully
+✓ init.js logs nonce generation
+✓ init.js logs initialization progress
+✓ injected.js logs categoryManagerReady event
+✓ init.js logs errors with context
+✓ manifest.json has all required files in content_scripts
+✓ manifest.json content_scripts match Shopline URLs
+
+============================================================
+Test Summary
+============================================================
+Total: 43 | Passed: 43 | Failed: 0
+============================================================
+
