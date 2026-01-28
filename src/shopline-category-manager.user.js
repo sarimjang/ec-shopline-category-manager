@@ -142,16 +142,31 @@
     }
 
     /**
-     * 從 localStorage 載入統計數據
+     * 從 chrome.storage.local 載入統計數據
      */
     loadStats() {
+      // Note: This is called in constructor before async is available
+      // Return default stats; actual loading happens in loadStatsAsync()
+      return {
+        totalMoves: 0,
+        totalTimeSaved: 0,
+        lastReset: new Date().toISOString()
+      };
+    }
+
+    /**
+     * 異步載入統計數據 - 必須在初始化時調用
+     */
+    async loadStatsAsync() {
       try {
-        const data = localStorage.getItem(this.storageKey);
-        if (data) {
-          return JSON.parse(data);
+        const result = await ShoplineStorage.get(this.storageKey);
+        if (result && result[this.storageKey]) {
+          this.stats = result[this.storageKey];
+          console.log('[TimeSavingsTracker] Stats loaded:', this.stats);
+          return this.stats;
         }
       } catch (error) {
-        console.warn('[TimeSavingsTracker] 載入統計失敗:', error);
+        console.warn('[TimeSavingsTracker] 異步載入統計失敗:', error);
       }
 
       // 預設值
@@ -163,11 +178,14 @@
     }
 
     /**
-     * 儲存統計數據到 localStorage
+     * 儲存統計數據到 chrome.storage.local
      */
-    saveStats() {
+    async saveStats() {
       try {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.stats));
+        await ShoplineStorage.set({
+          [this.storageKey]: this.stats
+        });
+        console.log('[TimeSavingsTracker] Stats saved:', this.stats);
       } catch (error) {
         console.warn('[TimeSavingsTracker] 儲存統計失敗:', error);
       }
@@ -179,14 +197,14 @@
      * @param {number} categoryCount - 分類總數
      * @param {number} targetLevel - 目標層級
      * @param {boolean} usedSearch - 是否使用搜尋
-     * @returns {{thisMove: number, totalMoves: number, totalTime: number}}
+     * @returns {Promise<{thisMove: number, totalMoves: number, totalTime: number}>}
      */
-    recordMove(categoryCount, targetLevel, usedSearch) {
+    async recordMove(categoryCount, targetLevel, usedSearch) {
       const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
 
       this.stats.totalMoves += 1;
       this.stats.totalTimeSaved += result.timeSaved;
-      this.saveStats();
+      await this.saveStats();
 
       return {
         thisMove: result.timeSaved,
@@ -237,13 +255,13 @@
     /**
      * 重置所有統計數據
      */
-    resetStats() {
+    async resetStats() {
       this.stats = {
         totalMoves: 0,
         totalTimeSaved: 0,
         lastReset: new Date().toISOString()
       };
-      this.saveStats();
+      await this.saveStats();
     }
   }
 
@@ -1732,7 +1750,7 @@
           const targetLevel = this.getLevel(targetCategory, categoriesArray);
           const usedSearch = this._lastMoveUsedSearch || false; // 從實例變數讀取
 
-          const result = this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
+          const result = await this.tracker.recordMove(categoryCount, targetLevel, usedSearch);
           const stats = this.tracker.getStats();
 
           // 清除標記
@@ -2658,6 +2676,11 @@
       const categoryManager = new CategoryManager(scope);
       categoryManager.initialize();
 
+      // 異步載入統計數據
+      categoryManager.tracker.loadStatsAsync().catch(error => {
+        console.error('[Shopline Category Manager] 載入統計數據失敗:', error);
+      });
+
       // 註冊 Tampermonkey 選單項目
       if (typeof GM_registerMenuCommand !== 'undefined') {
         GM_registerMenuCommand('📊 查看時間統計', () => {
@@ -2665,9 +2688,9 @@
           alert(stats);
         });
 
-        GM_registerMenuCommand('🔄 重置統計', () => {
+        GM_registerMenuCommand('🔄 重置統計', async () => {
           if (confirm('確定要重置時間統計嗎？')) {
-            categoryManager.tracker.resetStats();
+            await categoryManager.tracker.resetStats();
             alert('✅ 統計已重置');
           }
         });

@@ -30,6 +30,8 @@
       ],
       "js": [
         "content/init.js",
+        "shared/logger.js",
+        "shared/input-validator.js",
         "shared/storage.js",
         "content/content.js",
         "shared/storage-schema.js"
@@ -43,6 +45,7 @@
         "content/injected.js",
         "shared/storage.js",
         "shared/logger.js",
+        "shared/input-validator.js",
         "shared/constants.js",
         "shared/storage-schema.js",
         "shared/csv-export.js",

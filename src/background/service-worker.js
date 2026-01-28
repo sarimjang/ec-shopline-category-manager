@@ -98,6 +98,35 @@ chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
   logger.log('Message received from content script:', request);
 
   try {
+    // ========================================================================
+    // 第一步：驗證請求基本結構
+    // ========================================================================
+    const structureValidation = window.ShoplineInputValidator.validateRequestStructure(request);
+    if (!structureValidation.valid) {
+      logger.error('Invalid request structure:', structureValidation.errors);
+      window.ShoplineInputValidator.logRejectedRequest(request, structureValidation);
+      sendResponse({
+        error: 'Invalid request structure',
+        details: structureValidation.errors
+      });
+      return;
+    }
+
+    // ========================================================================
+    // 第二步：驗證操作名稱
+    // ========================================================================
+    const actionValidation = window.ShoplineInputValidator.validateAction(request.action);
+    if (!actionValidation.valid) {
+      logger.error('Invalid action:', actionValidation.errors);
+      window.ShoplineInputValidator.logRejectedRequest(request, actionValidation);
+      sendResponse({
+        error: 'Invalid action',
+        details: actionValidation.errors
+      });
+      return;
+    }
+
+    try {
     // Route based on action type
     switch (request.action) {
       case 'getCategories':
@@ -185,6 +214,19 @@ function handleGetCategories(_request, sendResponse) {
  * Handle updateCategories request
  */
 function handleUpdateCategories(request, sendResponse) {
+  // 驗證分類數據
+  const categoriesValidation = window.ShoplineInputValidator.validateCategories(request.categories || []);
+  if (!categoriesValidation.valid) {
+    logger.error('Invalid categories data:', categoriesValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, categoriesValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid categories data',
+      details: categoriesValidation.errors
+    });
+    return;
+  }
+
   const categories = request.categories || [];
   chrome.storage.local.set({ categories: categories }, function() {
     logger.log('Categories updated');
@@ -267,6 +309,19 @@ function handleImportData(request, sendResponse) {
  * Called when a category move is detected
  */
 function handleRecordCategoryMove(request, sendResponse) {
+  // 驗證時間節省值
+  const timeSavedValidation = window.ShoplineInputValidator.validateTimeSaved(request.timeSaved || 0);
+  if (!timeSavedValidation.valid) {
+    logger.error('Invalid timeSaved:', timeSavedValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, timeSavedValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid timeSaved value',
+      details: timeSavedValidation.errors
+    });
+    return;
+  }
+
   const timeSaved = request.timeSaved || 0;
 
   chrome.storage.local.get(['categoryMoveStats'], function(result) {
@@ -348,12 +403,20 @@ function handleGetSearchHistory(_request, sendResponse) {
  * Record a search query and return updated history
  */
 function handleRecordSearchQuery(request, sendResponse) {
-  const query = request.query || '';
-
-  if (!query || query.trim() === '') {
-    sendResponse({ success: false, error: 'Empty query' });
+  // 驗證查詢字符串
+  const queryValidation = window.ShoplineInputValidator.validateQuery(request.query || '');
+  if (!queryValidation.valid) {
+    logger.error('Invalid query:', queryValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, queryValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid query',
+      details: queryValidation.errors
+    });
     return;
   }
+
+  const query = request.query || '';
 
   chrome.storage.local.get(['searchHistory'], function(result) {
     let history = result.searchHistory || [];
@@ -385,6 +448,32 @@ function handleRecordSearchQuery(request, sendResponse) {
  * Classify error type and log it
  */
 function handleClassifyError(request, sendResponse) {
+  // 驗證錯誤類型
+  const errorTypeValidation = window.ShoplineInputValidator.validateErrorType(request.errorType || 'unknown');
+  if (!errorTypeValidation.valid) {
+    logger.error('Invalid errorType:', errorTypeValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, errorTypeValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid errorType',
+      details: errorTypeValidation.errors
+    });
+    return;
+  }
+
+  // 驗證錯誤訊息
+  const messageValidation = window.ShoplineInputValidator.validateErrorMessage(request.message || '');
+  if (!messageValidation.valid) {
+    logger.error('Invalid error message:', messageValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, messageValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid error message',
+      details: messageValidation.errors
+    });
+    return;
+  }
+
   const errorData = {
     timestamp: new Date().toISOString(),
     type: request.errorType || 'unknown',  // 'network', 'api', 'validation', 'scope'
@@ -435,19 +524,37 @@ function handleGetErrorLog(_request, sendResponse) {
  * Pre-flight validation for category move
  */
 function handleValidateCategoryPath(request, sendResponse) {
+  // 驗證分類 ID
+  const categoryIdValidation = window.ShoplineInputValidator.validateCategoryId(request.categoryId);
+  if (!categoryIdValidation.valid) {
+    logger.error('Invalid categoryId:', categoryIdValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, categoryIdValidation);
+    sendResponse({
+      success: false,
+      error: 'Invalid categoryId',
+      details: categoryIdValidation.errors
+    });
+    return;
+  }
+
+  // targetCategoryId can be null (move to root)
+  if (request.targetCategoryId !== null && request.targetCategoryId !== undefined) {
+    const targetValidation = window.ShoplineInputValidator.validateCategoryId(request.targetCategoryId);
+    if (!targetValidation.valid) {
+      logger.error('Invalid targetCategoryId:', targetValidation.errors);
+      window.ShoplineInputValidator.logRejectedRequest(request, targetValidation);
+      sendResponse({
+        success: false,
+        error: 'Invalid targetCategoryId',
+        details: targetValidation.errors
+      });
+      return;
+    }
+  }
+
   const categoryId = request.categoryId;
   const targetCategoryId = request.targetCategoryId;
   const validationErrors = [];
-
-  // Basic validation checks
-  if (!categoryId) {
-    validationErrors.push('Missing categoryId');
-  }
-
-  // targetCategoryId can be null (move to root), so only check if provided
-  if (targetCategoryId === undefined) {
-    validationErrors.push('Missing targetCategoryId parameter (can be null for root)');
-  }
 
   logger.log('Category path validation:', {
     categoryId: categoryId,
@@ -490,15 +597,20 @@ chrome.action.onClicked.addListener(function(_tab) {
  * Validates imported data structure, schema, and detects conflicts
  */
 function handleValidateImportData(request, sendResponse) {
-  const jsonString = request.jsonString;
-  
-  if (!jsonString) {
+  // 驗證 JSON 字符串
+  const jsonValidation = window.ShoplineInputValidator.validateJsonString(request.jsonString || '');
+  if (!jsonValidation.valid) {
+    logger.error('Invalid JSON string:', jsonValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, jsonValidation);
     sendResponse({
       success: false,
-      error: 'No JSON data provided for validation'
+      error: 'Invalid JSON string',
+      details: jsonValidation.errors
     });
     return;
   }
+
+  const jsonString = request.jsonString;
 
   try {
     // 第一步：驗證 JSON 格式和完整性
@@ -603,16 +715,20 @@ function handleValidateImportData(request, sendResponse) {
  * Applies conflict resolutions and writes to storage with data integrity checks
  */
 function handleExecuteImportData(request, sendResponse) {
-  const data = request.data;
-
-  if (!data || typeof data !== 'object') {
-    logger.error('Invalid data provided for import');
+  // 驗證數據對象
+  const dataValidation = window.ShoplineInputValidator.validateDataObject(request.data || {});
+  if (!dataValidation.valid) {
+    logger.error('Invalid data structure:', dataValidation.errors);
+    window.ShoplineInputValidator.logRejectedRequest(request, dataValidation);
     sendResponse({
       success: false,
-      error: 'Invalid data structure for import'
+      error: 'Invalid data structure for import',
+      details: dataValidation.errors
     });
     return;
   }
+
+  const data = request.data;
 
   try {
     logger.log('Starting import execution...');

@@ -1,0 +1,140 @@
+PHASE 2.5 INTEGRATION TESTING - SETUP COMPLETE
+================================================
+
+Task: lab_20260107_chrome-extension-shopline-category-ksh
+Status: IN PROGRESS
+Date: 2026-01-28
+
+DELIVERABLES CREATED:
+=====================
+
+1. PHASE_2_5_PLAN.md
+   - High-level overview and timeline
+   - 8 test scenarios with specifications
+   - Success criteria and resources
+   - ~1,500 lines of documentation
+
+2. docs/PHASE_2_5_INTEGRATION_TESTING.md
+   - Comprehensive testing guide
+   - Detailed step-by-step procedures
+   - Expected results and pass criteria
+   - Troubleshooting guide
+   - Console command reference
+   - ~7,500 lines of documentation
+
+3. docs/PHASE_2_5_QUICK_START.md
+   - Quick 5-minute setup
+   - Copy-paste ready test scripts
+   - All 8 tests with console commands
+   - Expected outputs
+   - Error handling guidance
+   - ~500 lines of documentation
+
+4. docs/PHASE_2_5_TEST_RESULTS.md
+   - Fillable results template
+   - Individual test recording forms
+   - Console output capture sections
+   - Issue documentation areas
+   - Sign-off and follow-up section
+   - ~1,000 lines of documentation
+
+TOTAL DOCUMENTATION: ~10,500 lines
+
+TEST COVERAGE:
+==============
+
+8 Comprehensive Test Scenarios:
+1. ✅ Basic Storage Operations (CRUD) - 5 minutes
+2. ✅ Data Persistence Across Page Reload - 10 minutes
+3. ✅ Invalid Input Rejection - 5 minutes
+4. ✅ Concurrent Storage Operations - 10 minutes
+5. ✅ Global Storage API Verification - 5 minutes
+6. ✅ Message Handler Integration - 10 minutes
+7. ✅ Console Health Check - 5 minutes
+8. ✅ Export/Import Round-trip - 10 minutes
+
+TOTAL TESTING TIME: ~60 minutes
+
+WHAT WILL BE TESTED:
+====================
+
+✓ Storage Isolation (chrome.storage.local)
+✓ Message Processing (Service Worker)
+✓ Data Persistence (Page reloads)
+✓ Input Validation (Invalid data rejection)
+✓ Concurrent Operations (Race condition prevention)
+✓ Legacy API Cleanup (Old _scm_storage not used)
+✓ Console Health (No errors/warnings)
+✓ Round-trip Integrity (Export/Import cycle)
+
+SUCCESS CRITERIA:
+=================
+
+- All 8 tests executed
+- 100% test pass rate (8/8 passed)
+- Test results documented
+- No critical issues found
+- Console clean of errors
+- Storage API properly isolated
+- Message handlers working
+- Data persistence verified
+- Round-trip integrity confirmed
+- Git commit created
+
+NEXT STEPS:
+===========
+
+1. Open Shopline page in Chrome
+2. Open DevTools Console (F12)
+3. Follow docs/PHASE_2_5_QUICK_START.md
+4. Execute each of 8 tests in sequence
+5. Record results in docs/PHASE_2_5_TEST_RESULTS.md
+6. Create git commit with results
+7. Update Beads task status
+
+ESTIMATED TIME TO COMPLETION:
+============================
+
+Setup and Documentation: COMPLETE ✓
+Test Execution: ~1 hour
+Results Documentation: ~15 minutes
+Total: ~75 minutes from start
+
+STATUS PROGRESS:
+===============
+
+Setup & Documentation      ████████████████████ 100%
+Test Execution            ░░░░░░░░░░░░░░░░░░░░   0%
+Results Recording         ░░░░░░░░░░░░░░░░░░░░   0%
+
+Overall: 33% (setup complete, awaiting test execution)
+
+BEADS TASK:
+===========
+
+ID: lab_20260107_chrome-extension-shopline-category-ksh
+Title: [2-P2.5] Phase 2 Integration Testing
+Status: in_progress
+Owner: [Your name]
+
+Commands to continue:
+- bd show lab_20260107_chrome-extension-shopline-category-ksh
+- bd update lab_20260107_chrome-extension-shopline-category-ksh --status done
+  (after tests complete)
+
+FILES READY FOR TESTING:
+=======================
+
+Quick Start (use this):
+  docs/PHASE_2_5_QUICK_START.md
+
+Detailed Guide (reference):
+  docs/PHASE_2_5_INTEGRATION_TESTING.md
+
+Results Recording:
+  docs/PHASE_2_5_TEST_RESULTS.md
+
+Overview:
+  PHASE_2_5_PLAN.md
+
+Ready to begin testing!
