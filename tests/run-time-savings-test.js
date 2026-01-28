@@ -217,7 +217,8 @@ test('4.3 使用搜索應該節省更多時間', () => {
   assert(resultWithSearch.dragTime === resultWithoutSearch.dragTime, 'dragTime should be same');
   assert(resultWithSearch.timeSaved > resultWithoutSearch.timeSaved, 'search should save more time');
 
-  const difference = resultWithoutSearch.timeSaved - resultWithSearch.timeSaved;
+  // 使用搜尋時 timeSaved 應該更大（因為 toolTime 更短）
+  const difference = resultWithSearch.timeSaved - resultWithoutSearch.timeSaved;
   assertClose(difference, 1.0, 0.05);
   console.log(`✓ Search impact: +${difference.toFixed(1)}s saved with search`);
 });
