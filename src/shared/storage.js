@@ -390,10 +390,136 @@ class StorageManager {
   }
 }
 
+/**
+ * 獲取分類移動統計數據
+ * @returns {Promise<Object>} 統計數據對象 {totalMoves, totalTimeSaved, lastReset, ...}
+ */
+async function getCategoryMoveStats() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(['categoryMoveStats'], (result) => {
+      if (chrome.runtime.lastError) {
+        logger.error('[getCategoryMoveStats] Error reading stats:', chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+      } else {
+        const stats = result.categoryMoveStats || {
+          totalMoves: 0,
+          totalTimeSaved: 0,
+          lastReset: new Date().toISOString()
+        };
+        logger.log('[getCategoryMoveStats] Stats loaded:', stats);
+        resolve(stats);
+      }
+    });
+  });
+}
+
+/**
+ * 保存分類移動統計數據
+ * @param {Object} stats - 統計數據對象
+ * @returns {Promise<Object>} 已保存的統計數據
+ */
+async function saveCategoryMoveStats(stats) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set({ categoryMoveStats: stats }, (result) => {
+      if (chrome.runtime.lastError) {
+        logger.error('[saveCategoryMoveStats] Error saving stats:', chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+      } else {
+        logger.log('[saveCategoryMoveStats] Stats saved successfully:', stats);
+        resolve(stats);
+      }
+    });
+  });
+}
+
+/**
+ * 檢查並遷移舊的 localStorage 數據到 chrome.storage.local
+ * 此函數應在擴展首次執行時調用
+ * @returns {Promise<Object>} 遷移報告 {itemsMigrated, errors}
+ */
+async function migrateFromLocalStorage() {
+  const report = {
+    itemsMigrated: 0,
+    errors: [],
+    startTime: new Date().toISOString()
+  };
+
+  try {
+    // 檢查遷移是否已執行過
+    const migrationStatus = await ShoplineStorage.get('migrationComplete');
+    if (migrationStatus.migrationComplete) {
+      logger.log('[migrateFromLocalStorage] Migration already completed, skipping');
+      return { ...report, alreadyMigrated: true };
+    }
+
+    // 遷移的鍵列表
+    const oldStorageKeys = [
+      { oldKey: 'shopline_category_stats', newKey: 'categoryMoveStats' },
+      { oldKey: 'shopline_search_history', newKey: 'searchHistory' },
+      { oldKey: 'shopline_move_history', newKey: 'moveHistory' },
+      { oldKey: 'shopline_error_log', newKey: 'errorLog' },
+      { oldKey: 'shopline_user_settings', newKey: 'userSettings' }
+    ];
+
+    // 遍歷每個鍵並遷移
+    for (const mapping of oldStorageKeys) {
+      try {
+        const oldValue = localStorage.getItem(mapping.oldKey);
+
+        if (oldValue) {
+          try {
+            const parsedValue = JSON.parse(oldValue);
+            await ShoplineStorage.set({ [mapping.newKey]: parsedValue });
+            report.itemsMigrated++;
+            logger.log(`[migrateFromLocalStorage] Migrated ${mapping.oldKey} → ${mapping.newKey}`);
+          } catch (parseError) {
+            logger.error(`[migrateFromLocalStorage] Failed to parse ${mapping.oldKey}:`, parseError);
+            report.errors.push({
+              key: mapping.oldKey,
+              error: parseError.message,
+              type: 'parse_error'
+            });
+          }
+        }
+      } catch (error) {
+        logger.error(`[migrateFromLocalStorage] Error processing ${mapping.oldKey}:`, error);
+        report.errors.push({
+          key: mapping.oldKey,
+          error: error.message,
+          type: 'processing_error'
+        });
+      }
+    }
+
+    // 標記遷移完成
+    await ShoplineStorage.set({
+      migrationComplete: true,
+      migrationTimestamp: new Date().toISOString(),
+      migrationVersion: 1
+    });
+
+    report.endTime = new Date().toISOString();
+    logger.log('[migrateFromLocalStorage] Migration completed:', report);
+
+    return report;
+  } catch (error) {
+    logger.error('[migrateFromLocalStorage] Critical migration error:', error);
+    report.errors.push({
+      error: error.message,
+      type: 'critical_error'
+    });
+    report.endTime = new Date().toISOString();
+    return report;
+  }
+}
+
 // Export for use in other scripts
 if (typeof window !== 'undefined') {
   window.ShoplineStorage = ShoplineStorage;
   window.StorageManager = StorageManager;
+  window.getCategoryMoveStats = getCategoryMoveStats;
+  window.saveCategoryMoveStats = saveCategoryMoveStats;
+  window.migrateFromLocalStorage = migrateFromLocalStorage;
 }
 
 
@@ -401,4 +527,5 @@ if (typeof window !== 'undefined') {
 // All storage operations now use message-based API through chrome.runtime.sendMessage
 if (typeof window !== 'undefined') {
   console.log('[storage.js] Content script storage APIs initialized (message-based)');
+  console.log('[storage.js] New storage functions available: getCategoryMoveStats, saveCategoryMoveStats, migrateFromLocalStorage');
 }

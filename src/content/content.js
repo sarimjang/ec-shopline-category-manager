@@ -132,59 +132,122 @@
   class TimeSavingsTracker {
     constructor() {
       this.storageKey = 'categoryMoveStats';
-      this.stats = this.loadStats();
-    }
-
-    /**
-     * 從 Service Worker 載入統計數據（使用消息傳遞）
-     * Phase 2.2: Migrated from window._scm_storage to message-based API
-     */
-    async loadStatsAsync() {
-      try {
-        return await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('[TimeSavingsTracker] Failed to load stats:', chrome.runtime.lastError);
-              reject(chrome.runtime.lastError);
-            } else if (response.success && response.stats) {
-              resolve(response.stats);
-            } else {
-              reject(new Error('Failed to get stats from service worker'));
-            }
-          });
-        });
-      } catch (error) {
-        console.warn('[TimeSavingsTracker] Error loading stats:', error);
-        // 預設值
-        return {
-          totalMoves: 0,
-          totalTimeSaved: 0,
-          lastReset: new Date().toISOString()
-        };
-      }
-    }
-
-    /**
-     * 同步方式載入統計數據（僅用於初始化）
-     * 注意：此方法返回預設值，因為存儲是非同步的
-     */
-    loadStats() {
-      // 預設值 - 實際值應通過 loadStatsAsync() 異步載入
-      return {
+      this.stats = {
         totalMoves: 0,
         totalTimeSaved: 0,
         lastReset: new Date().toISOString()
       };
+      // 異步初始化統計數據
+      this.initializationPromise = this.loadStatsAsync();
     }
 
     /**
-     * 通過消息傳遞更新統計數據到 Service Worker
-     * Phase 2.2: Migrated from window._scm_storage to message-based API
+     * 從 Chrome Storage API 異步載入統計數據
+     * Phase 3.0: Migrated from message-based API to direct storage.local access
      */
-    saveStats() {
-      // 統計保存由 recordMove 中的消息傳遞完成
-      // 此方法已移除直接存儲操作
-      console.log('[TimeSavingsTracker] Stats updated (via message-based API):', this.stats);
+    async loadStatsAsync() {
+      try {
+        // 首先嘗試遷移舊的 localStorage 數據（僅第一次執行）
+        if (window.migrateFromLocalStorage) {
+          const migrationReport = await window.migrateFromLocalStorage();
+          if (migrationReport.itemsMigrated > 0) {
+            console.log('[TimeSavingsTracker] Migration completed:', migrationReport);
+          }
+        }
+
+        // 使用新的存儲 API 函數讀取統計數據
+        if (window.getCategoryMoveStats) {
+          const loadedStats = await window.getCategoryMoveStats();
+          this.stats = loadedStats;
+          console.log('[TimeSavingsTracker] Stats loaded from chrome.storage.local:', this.stats);
+          return this.stats;
+        } else {
+          // 備用方案：使用消息傳遞
+          return await this.loadStatsViaMessage();
+        }
+      } catch (error) {
+        console.warn('[TimeSavingsTracker] Error loading stats:', error);
+        // 使用預設值
+        this.stats = {
+          totalMoves: 0,
+          totalTimeSaved: 0,
+          lastReset: new Date().toISOString()
+        };
+        return this.stats;
+      }
+    }
+
+    /**
+     * 備用方案：通過消息傳遞載入統計數據
+     * 當 getCategoryMoveStats 不可用時使用
+     */
+    async loadStatsViaMessage() {
+      return new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[TimeSavingsTracker] Message API failed, using defaults:', chrome.runtime.lastError);
+              resolve(this.stats);
+            } else if (response && response.success && response.stats) {
+              this.stats = response.stats;
+              resolve(this.stats);
+            } else {
+              console.warn('[TimeSavingsTracker] Invalid response from message API');
+              resolve(this.stats);
+            }
+          });
+        } catch (error) {
+          console.error('[TimeSavingsTracker] Error in message-based load:', error);
+          resolve(this.stats);
+        }
+      });
+    }
+
+    /**
+     * 同步方式取得統計數據（返回當前值，可能不是最新的）
+     * 注意：應優先使用 loadStatsAsync 或等待 initializationPromise
+     */
+    loadStats() {
+      return this.stats;
+    }
+
+    /**
+     * 保存統計數據到 Chrome Storage
+     * Phase 3.0: Direct storage.local access
+     */
+    async saveStats() {
+      try {
+        if (window.saveCategoryMoveStats) {
+          await window.saveCategoryMoveStats(this.stats);
+          console.log('[TimeSavingsTracker] Stats saved to chrome.storage.local:', this.stats);
+        } else {
+          // 備用方案：通過消息傳遞
+          this.saveStatsViaMessage();
+        }
+      } catch (error) {
+        console.error('[TimeSavingsTracker] Error saving stats:', error);
+      }
+    }
+
+    /**
+     * 備用方案：通過消息傳遞保存統計數據
+     */
+    saveStatsViaMessage() {
+      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage(
+          {
+            action: 'setStats',
+            stats: this.stats
+          },
+          (_response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[TimeSavingsTracker] Failed to save stats via message:', chrome.runtime.lastError);
+            } else {
+              console.log('[TimeSavingsTracker] Stats saved via message API');
+            }
+          }
+        );
+      }
     }
 
     /**
@@ -193,36 +256,30 @@
      * @param {number} categoryCount - 分類總數
      * @param {number} targetLevel - 目標層級
      * @param {boolean} usedSearch - 是否使用搜尋
-     * @returns {{thisMove: number, totalMoves: number, totalTime: number}}
+     * @returns {{thisMove: number, totalMoves: number, totalTime: number, savePromise: Promise}}
      */
     recordMove(categoryCount, targetLevel, usedSearch) {
       const result = calculateTimeSaved(categoryCount, targetLevel, usedSearch);
 
       this.stats.totalMoves += 1;
       this.stats.totalTimeSaved += result.timeSaved;
-      this.saveStats();
 
-      // 通知 Service Worker 記錄此次移動
-      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage(
-          {
-            action: 'recordCategoryMove',
-            timeSaved: result.timeSaved
-          },
-          (_response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('[TimeSavingsTracker] Failed to record move in service worker:', chrome.runtime.lastError);
-            } else {
-              console.log('[TimeSavingsTracker] Move recorded in service worker');
-            }
-          }
-        );
-      }
+      // 異步保存統計數據
+      const savePromise = this.saveStats().catch((error) => {
+        console.error('[TimeSavingsTracker] Failed to save move statistics:', error);
+      });
+
+      console.log('[TimeSavingsTracker] Move recorded locally:', {
+        thisMove: result.timeSaved,
+        totalMoves: this.stats.totalMoves,
+        totalTime: this.stats.totalTimeSaved
+      });
 
       return {
         thisMove: result.timeSaved,
         totalMoves: this.stats.totalMoves,
-        totalTime: this.stats.totalTimeSaved
+        totalTime: this.stats.totalTimeSaved,
+        savePromise
       };
     }
 
