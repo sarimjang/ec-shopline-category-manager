@@ -2376,8 +2376,136 @@
 // 初始化
 // ============================================================================
 
+// ============================================================================
+// EVENT LISTENER MANAGEMENT - Phase 1.4
+// ============================================================================
+
+/**
+ * ContentScript 事件監聽器管理器
+ * 管理所有 DOM 事件監聽器，確保卸載時正確清理
+ */
+class ContentScriptEventListenerManager {
+  constructor() {
+    this.listeners = [];
+    this.abortControllers = {};
+    this.isDestroyed = false;
+  }
+
+  /**
+   * 註冊事件監聽器
+   */
+  addEventListener(groupName, target, eventType, handler, options = {}) {
+    if (this.isDestroyed) {
+      console.warn('[content.js] Event manager destroyed, cannot add listener');
+      return;
+    }
+
+    if (!this.abortControllers[groupName]) {
+      this.abortControllers[groupName] = new AbortController();
+    }
+
+    const mergedOptions = {
+      ...options,
+      signal: this.abortControllers[groupName].signal
+    };
+
+    target.addEventListener(eventType, handler, mergedOptions);
+
+    this.listeners.push({
+      groupName,
+      target,
+      eventType,
+      handler,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('[content.js] Registered listener:', groupName + '/' + eventType);
+  }
+
+  /**
+   * 清理特定分組的監聽器
+   */
+  removeListenersFor(groupName) {
+    if (!this.abortControllers[groupName]) {
+      return;
+    }
+
+    this.abortControllers[groupName].abort();
+
+    const removed = this.listeners.filter(l => l.groupName === groupName).length;
+    this.listeners = this.listeners.filter(l => l.groupName !== groupName);
+
+    console.log('[content.js] Cleaned up', removed, 'listeners for:', groupName);
+  }
+
+  /**
+   * 清理所有監聽器
+   */
+  destroy() {
+    if (this.isDestroyed) {
+      return;
+    }
+
+    Object.values(this.abortControllers).forEach(controller => {
+      try {
+        controller.abort();
+      } catch (e) {
+        console.warn('[content.js] Error aborting controller:', e);
+      }
+    });
+
+    console.log('[content.js] Destroyed event manager:', this.listeners.length, 'listeners cleaned up');
+
+    this.listeners = [];
+    this.abortControllers = {};
+    this.isDestroyed = true;
+  }
+
+  /**
+   * 獲取統計信息
+   */
+  getStats() {
+    const groupStats = {};
+    this.listeners.forEach(listener => {
+      if (!groupStats[listener.groupName]) {
+        groupStats[listener.groupName] = 0;
+      }
+      groupStats[listener.groupName]++;
+    });
+
+    return {
+      totalListeners: this.listeners.length,
+      groups: Object.keys(this.abortControllers),
+      stats: groupStats,
+      isDestroyed: this.isDestroyed
+    };
+  }
+}
+
+// 全局事件管理器
+const contentEventManager = new ContentScriptEventListenerManager();
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 (async function initializeContentScript() {
   console.log('[content.js] Starting initialization...');
+
+  // 設置頁面卸載時的清理
+  window.addEventListener('beforeunload', () => {
+    console.log('[content.js] Page unloading, cleaning up event listeners');
+    contentEventManager.destroy();
+  });
+
+  window.addEventListener('pagehide', () => {
+    console.log('[content.js] Page hidden, cleaning up event listeners');
+    contentEventManager.destroy();
+  });
+
+  // 暴露統計方法供調試
+  window._scm_contentEventStats = () => contentEventManager.getStats();
+  console.log('[content.js] Event manager stats available at window._scm_contentEventStats()');
   
   // 等待 storage API 初始化
   if (!window._scm_storage) {

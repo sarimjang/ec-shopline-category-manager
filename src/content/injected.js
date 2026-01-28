@@ -67,6 +67,93 @@
   console.log('[Injected] AngularJS access functions initialized');
 
   // ============================================
+  // EVENT LISTENER CLEANUP MECHANISM (Phase 1.4)
+  // ============================================
+
+  /**
+   * 簡化版事件監聽器管理器（injected.js 版本）
+   * 注意：injected.js 在 MAIN world 中運行，與 init.js 分離
+   * 需要獨立的清理機制
+   */
+  class InjectedEventListenerManager {
+    constructor() {
+      this.listeners = [];
+      this.isDestroyed = false;
+    }
+
+    /**
+     * 註冊事件監聽器並追蹤
+     */
+    addEventListener(target, eventType, handler, options = {}) {
+      if (this.isDestroyed) {
+        console.warn('[Injected] Event listener manager destroyed, cannot add new listeners');
+        return;
+      }
+
+      target.addEventListener(eventType, handler, options);
+
+      this.listeners.push({
+        target,
+        eventType,
+        handler,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log('[Injected] Registered listener:', eventType, '(total:', this.listeners.length + ')');
+    }
+
+    /**
+     * 清理所有監聽器
+     */
+    cleanup() {
+      if (this.isDestroyed) {
+        return;
+      }
+
+      console.log('[Injected] Cleaning up', this.listeners.length, 'event listeners');
+
+      // 移除所有已註冊的監聽器
+      this.listeners.forEach(listener => {
+        try {
+          listener.target.removeEventListener(listener.eventType, listener.handler);
+        } catch (e) {
+          console.warn('[Injected] Error removing listener:', e);
+        }
+      });
+
+      this.listeners = [];
+      this.isDestroyed = true;
+    }
+
+    /**
+     * 獲取統計信息
+     */
+    getStats() {
+      return {
+        totalListeners: this.listeners.length,
+        isDestroyed: this.isDestroyed
+      };
+    }
+  }
+
+  // 全局監聽器管理器（注入的腳本版本）
+  const injectedEventManager = new InjectedEventListenerManager();
+
+  // 頁面卸載時清理
+  window.addEventListener('beforeunload', () => {
+    console.log('[Injected] Page unloading, cleaning up event listeners');
+    injectedEventManager.cleanup();
+  });
+
+  // 備用清理機制
+  window.addEventListener('pagehide', () => {
+    console.log('[Injected] Page hidden, cleaning up event listeners');
+    injectedEventManager.cleanup();
+  });
+
+  console.log('[Injected] Event listener cleanup mechanism initialized');
+
+  // ============================================
   // 讀取 nonce 並驗證完整性
   // ============================================
 
@@ -331,7 +418,7 @@
 
   // 在 DOM 完全載入後初始化
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeCategoryManager);
+    injectedEventManager.addEventListener(document, 'DOMContentLoaded', initializeCategoryManager);
   } else {
     initializeCategoryManager();
   }

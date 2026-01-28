@@ -1,17 +1,149 @@
 /**
  * Content Script Initializer - Runs in ISOLATED world
- * 
+ *
  * Responsible for:
  * 1. Injecting the injected.js script into the MAIN world
  * 2. Waiting for AngularJS to be available
  * 3. Setting up communication between content and main world
  * 4. Initializing the main content script
+ * 5. Managing event listener lifecycle with proper cleanup (Phase 1.4)
  */
 
 'use strict';
 
 (function() {
   const PREFIX = '[SCM-Init]';
+
+  // ============================================================================
+  // EVENT LISTENER MANAGEMENT - Phase 1.4
+  // ============================================================================
+
+  /**
+   * 統一管理事件監聽器，確保頁面卸載時正確清理
+   * 防止記憶體洩漏和重複監聽器
+   *
+   * 使用 AbortController 模式：
+   * - 為每個監聽器分組創建一個 AbortController
+   * - 當分組清理時，所有該分組的監聽器同時被移除
+   * - 當頁面卸載時，所有監聽器都被清理
+   */
+  class EventListenerManager {
+    constructor() {
+      this.listeners = []; // 追蹤所有註冊的監聽器
+      this.abortControllers = {}; // 按名稱組織的 AbortController
+      this.isDestroyed = false;
+    }
+
+    /**
+     * 註冊一個事件監聽器
+     * @param {string} groupName - 監聽器分組名稱（用於管理）
+     * @param {EventTarget} target - 事件目標（window、document、element）
+     * @param {string} eventType - 事件類型（如 'click', 'load'）
+     * @param {Function} handler - 事件處理函數
+     * @param {Object} options - addEventListener 選項
+     */
+    addEventListener(groupName, target, eventType, handler, options = {}) {
+      if (this.isDestroyed) {
+        console.warn(PREFIX, 'EventListenerManager has been destroyed, cannot add new listeners');
+        return;
+      }
+
+      // 為該分組創建 AbortController（如果還沒有）
+      if (!this.abortControllers[groupName]) {
+        this.abortControllers[groupName] = new AbortController();
+      }
+
+      // 將 signal 添加到選項中
+      const mergedOptions = {
+        ...options,
+        signal: this.abortControllers[groupName].signal
+      };
+
+      // 註冊監聽器
+      target.addEventListener(eventType, handler, mergedOptions);
+
+      // 記錄監聽器詳情
+      this.listeners.push({
+        groupName,
+        target,
+        eventType,
+        handler,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(PREFIX, `Registered listener: ${groupName}/${eventType}`, {
+        targetType: target === window ? 'window' : (target === document ? 'document' : 'element'),
+        totalListeners: this.listeners.length
+      });
+    }
+
+    /**
+     * 清理特定分組的所有監聽器
+     * @param {string} groupName - 分組名稱
+     */
+    removeListenersFor(groupName) {
+      if (!this.abortControllers[groupName]) {
+        return;
+      }
+
+      this.abortControllers[groupName].abort();
+
+      const removed = this.listeners.filter(l => l.groupName === groupName).length;
+      this.listeners = this.listeners.filter(l => l.groupName !== groupName);
+
+      console.log(PREFIX, `Cleaned up ${removed} listeners in group: ${groupName}`, {
+        remainingListeners: this.listeners.length
+      });
+    }
+
+    /**
+     * 清理所有監聽器（頁面卸載時調用）
+     */
+    destroy() {
+      if (this.isDestroyed) {
+        return;
+      }
+
+      // 觸發所有 AbortController
+      Object.values(this.abortControllers).forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          console.warn(PREFIX, 'Error aborting controller:', e);
+        }
+      });
+
+      console.log(PREFIX, `Destroyed EventListenerManager: ${this.listeners.length} listeners cleaned up`);
+
+      // 清空追蹤列表
+      this.listeners = [];
+      this.abortControllers = {};
+      this.isDestroyed = true;
+    }
+
+    /**
+     * 獲取統計信息（用於調試）
+     */
+    getStats() {
+      const groupStats = {};
+      this.listeners.forEach(listener => {
+        if (!groupStats[listener.groupName]) {
+          groupStats[listener.groupName] = 0;
+        }
+        groupStats[listener.groupName]++;
+      });
+
+      return {
+        totalListeners: this.listeners.length,
+        groups: Object.keys(this.abortControllers),
+        stats: groupStats,
+        isDestroyed: this.isDestroyed
+      };
+    }
+  }
+
+  // 全局事件監聽器管理器
+  const eventManager = new EventListenerManager();
 
   // ============================================================================
   // 1. NONCE GENERATION
@@ -106,6 +238,199 @@
   }
 
   // ============================================================================
+  // 3B. STORAGE MESSAGE HANDLER - Phase 2.1
+  // ============================================================================
+
+  /**
+   * 存儲消息協議定義 (Phase 2.1)
+   * 
+   * Request 格式:
+   * {
+   *   source: 'scm-storage',
+   *   action: 'get'|'set'|'remove'|'clear',
+   *   key: string (for get/remove) | undefined (for clear),
+   *   value: any (for set),
+   *   requestId: string (for tracking)
+   * }
+   * 
+   * Response 格式:
+   * {
+   *   source: 'scm-storage',
+   *   requestId: string,
+   *   success: boolean,
+   *   data: any | undefined,
+   *   error: string | undefined
+   * }
+   */
+
+  /**
+   * 從 chrome.storage.local 獲取值 (Phase 2.1)
+   * @param {string|array} keys - 鍵或鍵陣列
+   * @returns {Promise<object>}
+   */
+  function getFromStorage(keys) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(keys, function(result) {
+        if (chrome.runtime.lastError) {
+          console.error(PREFIX, 'Storage.get error:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log(PREFIX, 'Storage.get successful:', keys);
+          resolve(result);
+        }
+      });
+    });
+  }
+
+  /**
+   * 向 chrome.storage.local 設置值 (Phase 2.1)
+   * @param {object} items - 鍵值對
+   * @returns {Promise<void>}
+   */
+  function setInStorage(items) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set(items, function() {
+        if (chrome.runtime.lastError) {
+          console.error(PREFIX, 'Storage.set error:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log(PREFIX, 'Storage.set successful:', Object.keys(items));
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * 從 chrome.storage.local 移除值 (Phase 2.1)
+   * @param {string|array} keys - 鍵或鍵陣列
+   * @returns {Promise<void>}
+   */
+  function removeFromStorage(keys) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove(keys, function() {
+        if (chrome.runtime.lastError) {
+          console.error(PREFIX, 'Storage.remove error:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log(PREFIX, 'Storage.remove successful:', keys);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * 清除所有 chrome.storage.local 數據 (Phase 2.1)
+   * @returns {Promise<void>}
+   */
+  function clearStorage() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.clear(function() {
+        if (chrome.runtime.lastError) {
+          console.error(PREFIX, 'Storage.clear error:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log(PREFIX, 'Storage.clear successful');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * 處理存儲相關的消息請求 (Phase 2.1)
+   * 驗證消息源，執行操作，返回結果
+   * @param {object} request - 消息內容
+   * @param {object} sender - 發送者信息
+   * @param {function} sendResponse - 回應函數
+   * @returns {boolean} 返回 true 以支援異步回應
+   */
+  async function handleStorageMessage(request, sender, sendResponse) {
+    // 驗證消息源
+    if (request.source !== 'scm-storage') {
+      console.warn(PREFIX, 'Invalid message source:', request.source);
+      return false;
+    }
+
+    const { action, key, value, requestId } = request;
+    console.log(PREFIX, `Processing storage ${action} request (${requestId})`, {
+      sender: sender.id ? `extension:${sender.id}` : 'content',
+      key: key ? String(key).substring(0, 50) : 'undefined'
+    });
+
+    try {
+      let data;
+
+      switch (action) {
+        case 'get':
+          if (!key) {
+            throw new Error('Key is required for get operation');
+          }
+          data = await getFromStorage(key);
+          sendResponse({
+            source: 'scm-storage',
+            requestId,
+            success: true,
+            data
+          });
+          console.log(PREFIX, `Storage get completed (${requestId})`);
+          break;
+
+        case 'set':
+          if (!key || value === undefined) {
+            throw new Error('Key and value are required for set operation');
+          }
+          await setInStorage({ [key]: value });
+          sendResponse({
+            source: 'scm-storage',
+            requestId,
+            success: true,
+            data: { [key]: value }
+          });
+          console.log(PREFIX, `Storage set completed (${requestId})`);
+          break;
+
+        case 'remove':
+          if (!key) {
+            throw new Error('Key is required for remove operation');
+          }
+          await removeFromStorage(key);
+          sendResponse({
+            source: 'scm-storage',
+            requestId,
+            success: true
+          });
+          console.log(PREFIX, `Storage remove completed (${requestId})`);
+          break;
+
+        case 'clear':
+          await clearStorage();
+          sendResponse({
+            source: 'scm-storage',
+            requestId,
+            success: true
+          });
+          console.log(PREFIX, `Storage clear completed (${requestId})`);
+          break;
+
+        default:
+          throw new Error(`Unknown storage action: ${action}`);
+      }
+    } catch (error) {
+      console.error(PREFIX, `Error handling storage ${action}:`, error);
+      sendResponse({
+        source: 'scm-storage',
+        requestId,
+        success: false,
+        error: error.message
+      });
+    }
+
+    return true;
+  }
+
+  // ============================================================================
   // 4. WAIT FOR ANGULAR & CATEGORY MANAGER READY
   // ============================================================================
 
@@ -116,8 +441,8 @@
   function waitForCategoryManagerReady(expectedNonce) {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        // 清理事件監聽器
-        window.removeEventListener('categoryManagerReady', eventHandler);
+        // 清理該事件的監聽器
+        eventManager.removeListenersFor('initialization-categoryManagerReady');
         reject(new Error('Timeout waiting for categoryManagerReady event'));
       }, 5000);
 
@@ -131,12 +456,13 @@
 
         clearTimeout(timeout);
         console.log(PREFIX, 'categoryManagerReady event received with valid nonce', event.detail);
-        // 清理事件監聽器
-        window.removeEventListener('categoryManagerReady', eventHandler);
+        // 清理該事件的監聽器
+        eventManager.removeListenersFor('initialization-categoryManagerReady');
         resolve(event.detail);
       };
 
-      window.addEventListener('categoryManagerReady', eventHandler);
+      // 通過事件監聽器管理器註冊監聽器
+      eventManager.addEventListener('initialization-categoryManagerReady', window, 'categoryManagerReady', eventHandler);
     });
   }
 
@@ -166,29 +492,50 @@
   // ============================================================================
 
   /**
+   * 註冊存儲消息監聽器 (Phase 2.1)
+   * 在初始化時設置，以便 content.js 可以通過消息進行存儲操作
+   */
+  function registerStorageMessageHandler() {
+    console.log(PREFIX, 'Registering storage message handler...');
+    
+    try {
+      chrome.runtime.onMessage.addListener(handleStorageMessage);
+      console.log(PREFIX, 'Storage message handler registered successfully');
+      return true;
+    } catch (error) {
+      console.error(PREFIX, 'Failed to register storage message handler:', error);
+      return false;
+    }
+  }
+
+  /**
    * Initialize the content script
    */
   async function initialize() {
     try {
       console.log(PREFIX, 'Initialization starting');
 
-      // Step 0: Generate nonce for this page load
+      // Step 0: Register storage message handler (Phase 2.1)
+      registerStorageMessageHandler();
+      console.log(PREFIX, 'Storage handler registered');
+
+      // Step 1: Generate nonce for this page load
       const nonce = initializeNonce();
       console.log(PREFIX, 'Nonce initialized:', nonce);
 
-      // Step 1: Inject the script into main world with nonce
+      // Step 2: Inject the script into main world with nonce
       injectScript(nonce);
       console.log(PREFIX, 'Injected script with nonce');
 
-      // Step 2: Wait for AngularJS
+      // Step 3: Wait for AngularJS
       await waitForAngular();
       console.log(PREFIX, 'AngularJS ready');
 
-      // Step 3: Wait for categoryManagerReady event with nonce validation
+      // Step 4: Wait for categoryManagerReady event with nonce validation
       const detail = await waitForCategoryManagerReady(nonce);
       console.log(PREFIX, 'categoryManagerReady event received with valid nonce');
 
-      // Step 4: Content script is now ready to initialize
+      // Step 5: Content script is now ready to initialize
       console.log(PREFIX, 'All dependencies ready, content script can initialize');
 
       // Dispatch an event to indicate that init.js is done
@@ -206,14 +553,47 @@
   }
 
   // ============================================================================
-  // 5. START INITIALIZATION
+  // 5. CLEANUP & LIFECYCLE MANAGEMENT
   // ============================================================================
+
+  /**
+   * 註冊頁面卸載時的清理處理器
+   * 確保所有事件監聽器都被正確移除，防止記憶體洩漏
+   */
+  function setupCleanupHandlers() {
+    // 頁面卸載時清理所有事件監聽器
+    window.addEventListener('beforeunload', () => {
+      console.log(PREFIX, 'Page unloading, cleaning up event listeners...');
+      eventManager.destroy();
+    });
+
+    // 備用：如果頁面被 navigate 離開（不觸發 beforeunload）
+    window.addEventListener('pagehide', () => {
+      console.log(PREFIX, 'Page hidden, cleaning up event listeners...');
+      eventManager.destroy();
+    });
+
+    console.log(PREFIX, 'Cleanup handlers registered');
+  }
+
+  // ============================================================================
+  // 6. START INITIALIZATION
+  // ============================================================================
+
+  // 設置清理處理器（必須在初始化前進行）
+  setupCleanupHandlers();
 
   // Start initialization immediately when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialize);
+    eventManager.addEventListener('initialization-domReady', document, 'DOMContentLoaded', initialize);
   } else {
     initialize();
+  }
+
+  // 暴露事件管理器的統計方法供調試使用
+  if (typeof window !== 'undefined') {
+    window._scm_eventManagerStats = () => eventManager.getStats();
+    console.log(PREFIX, 'Event manager stats available at window._scm_eventManagerStats()');
   }
 
 })();
