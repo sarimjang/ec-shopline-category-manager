@@ -2588,26 +2588,29 @@ const contentEventManager = new ContentScriptEventListenerManager();
   // No need to check or initialize window._scm_storage
   // All storage operations go through chrome.runtime.sendMessage to the Service Worker
   console.log('[content.js] Storage API initialized (message-based communication)');
-  
-  // 等待 AngularJS 準備好
-  let angularReady = false;
-  let attempts = 0;
-  const maxAttempts = 50; // 5 秒（每 100ms 檢查一次）
-  
-  while (!angularReady && attempts < maxAttempts) {
-    if (typeof window.angular !== 'undefined' && window._scm_getAngular()) {
-      angularReady = true;
-      console.log('[content.js] AngularJS detected');
-    } else {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      attempts++;
-    }
-  }
-  
-  if (!angularReady) {
-    console.error('[content.js] AngularJS not found after waiting');
+
+  // Wait for init.js to complete initialization (which confirms AngularJS is ready in main world)
+  // init.js runs in isolated world and successfully validates AngularJS before sending scmInitComplete
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      console.error('[content.js] Timeout waiting for scmInitComplete event');
+      reject(new Error('Initialization timeout'));
+    }, 5000);
+
+    const handleInitComplete = (event) => {
+      if (event.detail && event.detail.nonce) {
+        clearTimeout(timeout);
+        window.removeEventListener('scmInitComplete', handleInitComplete);
+        console.log('[content.js] scmInitComplete event received');
+        resolve(event.detail);
+      }
+    };
+
+    window.addEventListener('scmInitComplete', handleInitComplete);
+  }).catch(error => {
+    console.error('[content.js] Initialization failed:', error);
     return;
-  }
+  });
 
   // Issue #2: 從 AngularJS 中獲取 scope 對象並初始化 CategoryManager
   let scope = null;
