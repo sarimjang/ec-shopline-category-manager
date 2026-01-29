@@ -2,11 +2,35 @@
 
 ## Phase 1: Cross-World Communication (4-6 hours)
 
-- [ ] Implement nonce generation in src/content/init.js (1 hour)
-- [ ] Add nonce validation for categoryManagerReady event (1.5 hours)
-- [ ] Update injected.js to read and include nonce (1 hour)
-- [ ] Implement event listener cleanup (1 hour)
-- [ ] Phase 1 integration testing (1.5 hours)
+- [x] Implement nonce generation in src/content/init.js (1 hour)
+- [x] Add nonce validation for categoryManagerReady event (1.5 hours)
+- [x] Update injected.js to read and include nonce (1 hour)
+- [x] Implement event listener cleanup (1 hour)
+- [x] Phase 1 integration testing (1.5 hours)
+
+## Phase 1.7: Message Schema Definition (2-3 hours)
+
+- [ ] Create docs/MESSAGE_SCHEMA.md with all message types (0.5 hours)
+- [ ] Define schema for categoryManagerReady (0.5 hours)
+- [ ] Define schema for categoryMoved (0.5 hours)
+- [ ] Define schema for syncCategories (0.5 hours)
+- [ ] Document validation rules and error codes (0.5 hours)
+
+## Phase 1.8: Integration & Security Testing (3-4 hours)
+
+- [ ] Verify complete cross-world handshake flow (1 hour)
+- [ ] Test tampering detection scenarios (1 hour)
+- [ ] Test attack scenarios (page script impersonation, nonce spoofing) (0.75 hours)
+- [ ] Verify performance characteristics (< 100ms handshake) (0.5 hours)
+- [ ] Memory leak testing (repeated init/cleanup cycles) (0.75 hours)
+
+## Phase 1.9: Manual Verification & Deployment (2-3 hours)
+
+- [ ] Verify functional operations on real Shopline.com (1 hour)
+- [ ] Security verification (no API leaks, CSP compliance) (0.5 hours)
+- [ ] Performance baseline measurement (0.5 hours)
+- [ ] Stress testing (200+ categories, rapid page refreshes) (0.5 hours)
+- [ ] Cross-browser and compatibility testing (0.5 hours)
 
 ## Phase 2: Storage Isolation (3-4 hours)
 
@@ -38,12 +62,14 @@
 
 | Phase | Hours | Status |
 |-------|-------|--------|
-| Phase 1 | 4-6 | Not Started |
+| Phase 1 | 4-6 | ✅ Complete |
+| Phase 1.7 | 2-3 | ⏳ Pending |
+| Phase 1.8 | 3-4 | ⏳ Pending |
+| Phase 1.9 | 2-3 | ⏳ Pending |
 | Phase 2 | 3-4 | Not Started |
 | Phase 3 | 1-2 | Not Started |
 | Phase 4 | 2-3 | Not Started |
-| Testing | 2-3 | Not Started |
-| **Total** | **12-18** | **Not Started** |
+| **Total** | **20-27** | **Phase 1.7+ Pending** |
 
 ## Parallelizable Work
 
