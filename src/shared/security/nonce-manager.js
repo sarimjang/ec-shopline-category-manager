@@ -37,13 +37,24 @@ class NonceManager {
    * @throws {Error} If crypto API is unavailable
    */
   generate() {
-    // TODO: Implement crypto-secure nonce generation
-    // 1. Use crypto.getRandomValues() for secure randomness
-    // 2. Generate 16 bytes
-    // 3. Convert to hex string (32 chars)
-    // 4. Store with timestamp and TTL
-    // 5. Return nonce
-    throw new Error('generate() not yet implemented');
+    // Generate 16 random bytes using crypto API
+    const buffer = new Uint8Array(NonceManager.CONFIG.NONCE_LENGTH_BYTES);
+    crypto.getRandomValues(buffer);
+
+    // Convert bytes to hex string (32 characters)
+    const nonce = Array.from(buffer)
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Store nonce with metadata
+    const now = Date.now();
+    this.nonces.set(nonce, {
+      value: nonce,
+      timestamp: now,
+      expiresAt: now + NonceManager.CONFIG.TTL_MS,
+    });
+
+    return nonce;
   }
 
   /**
@@ -52,12 +63,39 @@ class NonceManager {
    * @returns {boolean} True if nonce is valid and not expired
    */
   validate(nonce) {
-    // TODO: Implement constant-time validation
-    // 1. Check if nonce exists in storage
-    // 2. Check if it's expired
-    // 3. Use constant-time comparison (timingSafeEqual equivalent)
-    // 4. Return validation result
-    throw new Error('validate() not yet implemented');
+    // Input validation
+    if (!nonce || typeof nonce !== 'string') {
+      return false;
+    }
+
+    // Check format: must be 32 hex characters
+    if (!/^[0-9a-f]{32}$/i.test(nonce)) {
+      return false;
+    }
+
+    // Retrieve stored nonce
+    const stored = this.nonces.get(nonce);
+    if (!stored) {
+      return false;
+    }
+
+    // Check expiration
+    const now = Date.now();
+    if (now > stored.expiresAt) {
+      // Clean up expired nonce
+      this.nonces.delete(nonce);
+      return false;
+    }
+
+    // Use constant-time comparison to prevent timing attacks
+    const isValid = this.timingSafeCompare(nonce, stored.value);
+
+    // If valid, remove from storage (one-time use)
+    if (isValid) {
+      this.nonces.delete(nonce);
+    }
+
+    return isValid;
   }
 
   /**
@@ -68,10 +106,31 @@ class NonceManager {
    * @private
    */
   timingSafeCompare(a, b) {
-    // TODO: Implement constant-time comparison
-    // Use same approach as crypto.timingSafeEqual
-    // Compare all characters even if mismatch is found early
-    throw new Error('timingSafeCompare() not yet implemented');
+    // Check both inputs are strings
+    if (typeof a !== 'string' || typeof b !== 'string') {
+      return false;
+    }
+
+    // Constant-time comparison: always compare all characters
+    // even if lengths differ or mismatch is found early
+    let result = 0;
+
+    // Compare lengths using XOR (0 if equal, non-zero if different)
+    result |= a.length ^ b.length;
+
+    // Compare characters up to the longer string's length
+    const maxLength = Math.max(a.length, b.length);
+    for (let i = 0; i < maxLength; i++) {
+      // Use charCodeAt with fallback to 0 for out-of-bounds access
+      const charA = i < a.length ? a.charCodeAt(i) : 0;
+      const charB = i < b.length ? b.charCodeAt(i) : 0;
+
+      // XOR comparison: 0 if equal, non-zero if different
+      result |= charA ^ charB;
+    }
+
+    // Return true only if result is 0 (all comparisons matched)
+    return result === 0;
   }
 
   /**
@@ -79,11 +138,11 @@ class NonceManager {
    * @private
    */
   startCleanup() {
-    // TODO: Implement cleanup interval
-    // 1. Schedule cleanup to run every CLEANUP_INTERVAL_MS
-    // 2. Remove expired nonces from storage
-    // 3. Log cleanup stats if DEBUG mode
-    throw new Error('startCleanup() not yet implemented');
+    // Schedule automatic cleanup of expired nonces
+    // Run every CLEANUP_INTERVAL_MS (60 seconds)
+    setInterval(() => {
+      this.cleanupExpiredNonces();
+    }, NonceManager.CONFIG.CLEANUP_INTERVAL_MS);
   }
 
   /**
@@ -92,12 +151,18 @@ class NonceManager {
    * @private
    */
   cleanupExpiredNonces() {
-    // TODO: Implement cleanup logic
-    // 1. Get current time
-    // 2. Iterate through all nonces
-    // 3. Delete expired ones
-    // 4. Return count
-    throw new Error('cleanupExpiredNonces() not yet implemented');
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    // Iterate through all nonces and delete expired ones
+    for (const [nonce, data] of this.nonces.entries()) {
+      if (now > data.expiresAt) {
+        this.nonces.delete(nonce);
+        cleanedCount++;
+      }
+    }
+
+    return cleanedCount;
   }
 
   /**
