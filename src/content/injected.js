@@ -246,7 +246,9 @@
         totalTimeSaved: 0,
         lastReset: new Date().toISOString()
       };
-      this.storageManager = new window.StorageManager();
+      // 注意：在 main world 中無法直接使用 StorageManager
+      // 統計數據將透過 broadcastStats() 發送到 popup（由 content script 處理）
+      this.storageManager = null; // 禁用直接存儲，改用訊息傳遞
 
       console.log('[CategoryManager] Initialized with injected dependencies');
     }
@@ -303,16 +305,16 @@
         const targetLevel = this.getTargetLevel(newParent);
         const timeSaved = this.calculateTimeSaved(this.categories.length, targetLevel);
 
-        // 7. 更新統計並存儲
-        const newStats = await this.storageManager.addMove(timeSaved);
-        this.stats = newStats;
+        // 7. 更新統計（記憶體中，通過消息傳遞進行持久化）
+        this.stats.totalMoves++;
+        this.stats.totalTimeSaved += timeSaved;
 
         console.log('[CategoryManager] Stats updated:', this.stats);
 
-        // 8. 廣播統計到 popup
+        // 8. 廣播統計到 popup（content script 會處理持久化存儲）
         this.broadcastStats();
 
-        return { success: true, timeSaved, stats: newStats };
+        return { success: true, timeSaved, stats: this.stats };
       } catch (error) {
         console.error('[CategoryManager] Move failed:', error);
         this.broadcastError(error.message);

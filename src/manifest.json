@@ -12,6 +12,7 @@
     "contextMenus"
   ],
   "host_permissions": [
+    "*://admin.shoplineapp.com/*",
     "*://app.shoplineapp.com/*",
     "*://app.shopline.tw/*",
     "*://app.shopline.app/*"
@@ -27,6 +28,7 @@
   "content_scripts": [
     {
       "matches": [
+        "*://admin.shoplineapp.com/admin/*/categories*",
         "*://app.shoplineapp.com/admin/*/categories*",
         "*://app.shopline.tw/admin/*/categories*",
         "*://app.shopline.app/admin/*/categories*"
@@ -62,6 +64,7 @@
         "shared/security/security-logger.js"
       ],
       "matches": [
+        "*://admin.shoplineapp.com/*",
         "*://app.shoplineapp.com/*",
         "*://app.shopline.tw/*",
         "*://app.shopline.app/*"
