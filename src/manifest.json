@@ -54,7 +54,12 @@
         "shared/csv-export.js",
         "shared/export-formats.js",
         "shared/import-validator.js",
-        "shared/conflict-detector.js"
+        "shared/conflict-detector.js",
+        "shared/security/nonce-manager.js",
+        "shared/security/message-validator.js",
+        "shared/security/message-signer.js",
+        "shared/security/cross-world-validator.js",
+        "shared/security/security-logger.js"
       ],
       "matches": [
         "*://app.shoplineapp.com/*",
