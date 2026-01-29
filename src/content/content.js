@@ -2589,47 +2589,53 @@ const contentEventManager = new ContentScriptEventListenerManager();
   // All storage operations go through chrome.runtime.sendMessage to the Service Worker
   console.log('[content.js] Storage API initialized (message-based communication)');
 
-  // Wait for page to be ready and injected.js to set up functions
-  // Rather than checking nonce, we wait for:
-  // 1. DOM to be ready (categories table visible)
-  // 2. injected.js to set up _scm_getAngular function
-  // 3. AngularJS functions to be available
+  // Wait for page to be ready and categories tree to be rendered
+  // We need to ensure:
+  // 1. _scm_getAngular function is available
+  // 2. Categories tree container exists
+  // 3. Category nodes are actually rendered (at least one li.angular-ui-tree-node exists)
 
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      console.error('[content.js] Timeout waiting for page initialization');
-      reject(new Error('Page initialization timeout'));
-    }, 10000); // 10 seconds for slow pages
+      console.error('[content.js] Timeout waiting for page initialization (categories not loaded)');
+      reject(new Error('Categories initialization timeout'));
+    }, 15000); // 15 seconds for slow pages with many categories
 
     const checkReady = () => {
-      // Wait for injected.js to set up the _scm_getAngular function
-      if (typeof window._scm_getAngular === 'function') {
-        clearTimeout(timeout);
-        console.log('[content.js] AngularJS access function detected');
-        resolve();
+      // Check for _scm_getAngular function
+      if (typeof window._scm_getAngular !== 'function') {
+        setTimeout(checkReady, 100);
         return;
       }
 
-      // Also wait for categories container to appear
-      const hasContainer = document.querySelector('.angular-ui-tree, table[data-type="categories"], .categories-table, [data-categories]');
-      if (hasContainer && typeof window._scm_getAngular === 'function') {
-        clearTimeout(timeout);
-        console.log('[content.js] Categories container and AngularJS both ready');
-        resolve();
+      // Check for tree container
+      const treeContainer = document.querySelector('.angular-ui-tree');
+      if (!treeContainer) {
+        setTimeout(checkReady, 100);
         return;
       }
 
-      // Keep checking
-      setTimeout(checkReady, 100);
+      // Check for actual category nodes (li elements with ui-tree-node attribute)
+      const categoryNodes = document.querySelectorAll('.angular-ui-tree li[ui-tree-node], .angular-ui-tree li.angular-ui-tree-node');
+      if (categoryNodes.length === 0) {
+        // Categories not yet rendered, keep checking
+        setTimeout(checkReady, 100);
+        return;
+      }
+
+      // All conditions met
+      clearTimeout(timeout);
+      console.log(`[content.js] Page fully initialized: ${categoryNodes.length} categories found`);
+      resolve();
     };
 
     checkReady();
   }).catch(error => {
     console.error('[content.js] Initialization failed:', error);
-    // Don't return here - continue even if initialization is slow
+    // Don't return here - continue even if initialization is slow or incomplete
   });
 
-  console.log('[content.js] Page initialization confirmed');
+  console.log('[content.js] Proceeding with UI injection');
 
   // Issue #2: 從 AngularJS 中獲取 scope 對象並初始化 CategoryManager
   let scope = null;
