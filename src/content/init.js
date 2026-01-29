@@ -466,27 +466,6 @@
     });
   }
 
-  /**
-   * Wait for AngularJS to be available
-   */
-  function waitForAngular() {
-    return new Promise((resolve, reject) => {
-      const maxAttempts = 50; // 5 seconds max (50 * 100ms)
-      let attempts = 0;
-
-      const checkInterval = setInterval(() => {
-        if (typeof window !== 'undefined' && window.angular) {
-          clearInterval(checkInterval);
-          console.log(PREFIX, 'AngularJS detected');
-          resolve(window.angular);
-        } else if (++attempts > maxAttempts) {
-          clearInterval(checkInterval);
-          reject(new Error('Timeout waiting for AngularJS'));
-        }
-      }, 100);
-    });
-  }
-
   // ============================================================================
   // 4. INITIALIZATION FLOW
   // ============================================================================
@@ -534,7 +513,7 @@
 
       // Step 3: Wait for categoryManagerReady event with nonce validation
       // This event is only broadcasted after injected.js confirms AngularJS is available
-      const detail = await waitForCategoryManagerReady(nonce);
+      await waitForCategoryManagerReady(nonce);
       console.log(PREFIX, 'categoryManagerReady event received with valid nonce');
 
       // Step 4: Content script is now ready to initialize
