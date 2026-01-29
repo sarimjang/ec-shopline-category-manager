@@ -134,8 +134,12 @@ class MessageSigner {
       throw new Error('No signing key available');
     }
 
+    // Create a copy of the message without the signature field for signing
+    const messageToSign = { ...message };
+    delete messageToSign.signature;
+
     // Serialize message to JSON
-    const messageData = new TextEncoder().encode(JSON.stringify(message));
+    const messageData = new TextEncoder().encode(JSON.stringify(messageToSign));
 
     // Use HMAC-SHA256 to sign
     const signatureBytes = await this.crypto.sign(
@@ -177,8 +181,12 @@ class MessageSigner {
     }
 
     try {
+      // Create a copy of the message without the signature field for verification
+      const messageToVerify = { ...message };
+      delete messageToVerify.signature;
+
       // Serialize message to JSON
-      const messageData = new TextEncoder().encode(JSON.stringify(message));
+      const messageData = new TextEncoder().encode(JSON.stringify(messageToVerify));
 
       // Decode signature from hex
       const signatureBytes = this._hexToBytes(signature);
