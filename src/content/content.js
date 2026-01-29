@@ -2589,53 +2589,47 @@ const contentEventManager = new ContentScriptEventListenerManager();
   // All storage operations go through chrome.runtime.sendMessage to the Service Worker
   console.log('[content.js] Storage API initialized (message-based communication)');
 
-  // Wait for init.js to complete initialization
-  // Since both scripts run at document_start, we need to check if nonce is already set
-  // or wait for it to be set via event listener
-  let initComplete = false;
+  // Wait for page to be ready and injected.js to set up functions
+  // Rather than checking nonce, we wait for:
+  // 1. DOM to be ready (categories table visible)
+  // 2. injected.js to set up _scm_getAngular function
+  // 3. AngularJS functions to be available
 
-  // First check: nonce might already be set by init.js
-  if (window._scm_nonce) {
-    console.log('[content.js] Nonce already initialized:', window._scm_nonce);
-    initComplete = true;
-  }
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      console.error('[content.js] Timeout waiting for page initialization');
+      reject(new Error('Page initialization timeout'));
+    }, 10000); // 10 seconds for slow pages
 
-  // If not initialized yet, wait for the nonce to be set
-  if (!initComplete) {
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        console.error('[content.js] Timeout waiting for nonce initialization');
-        reject(new Error('Nonce initialization timeout'));
-      }, 5000);
+    const checkReady = () => {
+      // Wait for injected.js to set up the _scm_getAngular function
+      if (typeof window._scm_getAngular === 'function') {
+        clearTimeout(timeout);
+        console.log('[content.js] AngularJS access function detected');
+        resolve();
+        return;
+      }
 
-      const handleNonceSet = () => {
-        if (window._scm_nonce) {
-          clearTimeout(timeout);
-          window.removeEventListener('scmInitComplete', handleNonceSet);
-          console.log('[content.js] Nonce detected:', window._scm_nonce);
-          resolve();
-        }
-      };
+      // Also wait for categories container to appear
+      const hasContainer = document.querySelector('.angular-ui-tree, table[data-type="categories"], .categories-table, [data-categories]');
+      if (hasContainer && typeof window._scm_getAngular === 'function') {
+        clearTimeout(timeout);
+        console.log('[content.js] Categories container and AngularJS both ready');
+        resolve();
+        return;
+      }
 
-      // Check periodically if nonce is set
-      const checkInterval = setInterval(() => {
-        if (window._scm_nonce) {
-          clearInterval(checkInterval);
-          clearTimeout(timeout);
-          window.removeEventListener('scmInitComplete', handleNonceSet);
-          console.log('[content.js] Nonce detected via polling:', window._scm_nonce);
-          resolve();
-        }
-      }, 100);
+      // Keep checking
+      setTimeout(checkReady, 100);
+    };
 
-      window.addEventListener('scmInitComplete', handleNonceSet);
-    }).catch(error => {
-      console.error('[content.js] Initialization failed:', error);
-      return;
-    });
-  }
+    checkReady();
+  }).catch(error => {
+    console.error('[content.js] Initialization failed:', error);
+    // Don't return here - continue even if initialization is slow
+  });
 
-  console.log('[content.js] Init.js initialization confirmed');
+  console.log('[content.js] Page initialization confirmed');
 
   // Issue #2: 從 AngularJS 中獲取 scope 對象並初始化 CategoryManager
   let scope = null;
