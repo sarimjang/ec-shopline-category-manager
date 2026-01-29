@@ -510,6 +510,11 @@
 
   /**
    * Initialize the content script
+   *
+   * Note: We skip AngularJS detection because:
+   * - Content script runs in isolated world and cannot access main world's window.angular
+   * - Injected script in main world confirms AngularJS availability
+   * - We rely on categoryManagerReady event as proof of successful initialization
    */
   async function initialize() {
     try {
@@ -527,15 +532,12 @@
       injectScript(nonce);
       console.log(PREFIX, 'Injected script with nonce');
 
-      // Step 3: Wait for AngularJS
-      await waitForAngular();
-      console.log(PREFIX, 'AngularJS ready');
-
-      // Step 4: Wait for categoryManagerReady event with nonce validation
+      // Step 3: Wait for categoryManagerReady event with nonce validation
+      // This event is only broadcasted after injected.js confirms AngularJS is available
       const detail = await waitForCategoryManagerReady(nonce);
       console.log(PREFIX, 'categoryManagerReady event received with valid nonce');
 
-      // Step 5: Content script is now ready to initialize
+      // Step 4: Content script is now ready to initialize
       console.log(PREFIX, 'All dependencies ready, content script can initialize');
 
       // Dispatch an event to indicate that init.js is done
